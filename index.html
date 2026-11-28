@@ -1,0 +1,2960 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#f5f5f4" />
+  <title>우리 집 스마트 가족 대시보드 &amp; 리모컨</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif; }
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow-x: hidden; }
+    .tabular-nums { font-variant-numeric: tabular-nums; }
+    .thin-scroll::-webkit-scrollbar { width: 4px; height: 4px; }
+    .thin-scroll::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.45); border-radius: 9999px; }
+
+    /* 데스크톱 16:9 와이드 키오스크 모드 */
+    /* 가변 그리드 8열 기준 (M = 2열x1행, MM = 4열x1행, M/M = 2열x2행, M/M/M = 2열x3행, L = 4열x2행, Line = 모니터 최하단 고정 높이 한 줄) */
+    #kiosk-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+    #kiosk-main-area {
+      flex: 1 1 0%;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: repeat(8, minmax(0, 1fr));
+      grid-auto-rows: minmax(145px, 1fr);
+      grid-auto-flow: dense;
+      gap: 0.65rem;
+    }
+    #kiosk-line-area {
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .w-size-m      { grid-column: span 2 / span 2; grid-row: span 1 / span 1; }
+    .w-size-mm-h   { grid-column: span 4 / span 4; grid-row: span 1 / span 1; }
+    .w-size-mm-v   { grid-column: span 2 / span 2; grid-row: span 2 / span 2; }
+    .w-size-mmm-v  { grid-column: span 2 / span 2; grid-row: span 3 / span 3; }
+    .w-size-mmmm-v { grid-column: span 2 / span 2; grid-row: span 4 / span 4; }
+    .w-size-l      { grid-column: span 4 / span 4; grid-row: span 2 / span 2; }
+    .w-size-line   {
+      width: 100%;
+      height: 78px !important;
+      min-height: 78px !important;
+      max-height: 78px !important;
+      padding: 0.45rem 0.75rem !important;
+      justify-content: space-between;
+      overflow: hidden;
+    }
+
+    /* 가로 폭 2열(M, M/M, M/M/M) 축소 모드 최적화 */
+    .w-narrow .widget-hide-on-eighth { display: none !important; }
+    .w-narrow .widget-stack-on-eighth { grid-template-columns: 1fr !important; }
+    .w-narrow .widget-stack-on-eighth > div { grid-column: span 12 / span 12 !important; }
+
+    /* 가로 한 줄(Line) 모드 최적화: 윗줄(제목+버튼) / 아랫줄(내용 딱 1줄) 고정 */
+    .w-size-line > div:not(.widget-edit-bar):first-of-type {
+      margin-bottom: 0.25rem !important;
+      padding-bottom: 0.2rem !important;
+      border-bottom: 0 !important;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .w-size-line .widget-body-wrap {
+      display: flex !important;
+      flex-direction: row !important;
+      flex-wrap: nowrap !important;
+      align-items: center !important;
+      justify-content: flex-start !important;
+      overflow-x: auto !important;
+      overflow-y: hidden !important;
+      gap: 0.45rem !important;
+      flex: 1;
+      min-height: 0;
+      height: 30px !important;
+      max-height: 30px !important;
+    }
+    .w-size-line .widget-body-wrap > * {
+      flex: 0 0 auto !important;
+      height: 26px !important;
+      max-height: 26px !important;
+      padding-top: 0.15rem !important;
+      padding-bottom: 0.15rem !important;
+      margin: 0 !important;
+      white-space: nowrap !important;
+    }
+    .w-size-line ul.widget-body-wrap {
+      list-style: none;
+      padding-left: 0;
+    }
+    .w-size-line .widget-hide-on-line { display: none !important; }
+
+    /* 사용자 정의 폰트 크기 변수 (보드 제목 / 리스트 본문 분리) */
+    :root {
+      --board-title-size: 14px;
+      --board-content-size: 12px;
+    }
+    .board-title-text {
+      font-size: var(--board-title-size) !important;
+      line-height: 1.3 !important;
+    }
+    .board-content-text {
+      font-size: var(--board-content-size) !important;
+      line-height: 1.35 !important;
+    }
+
+    /* 데스크톱/모니터 & 모바일 화면 분리 */
+    #desktop-kiosk { display: flex; flex-direction: column; }
+    #mobile-pwa { display: none !important; }
+    @media (max-width: 639px) {
+      #desktop-kiosk { display: none !important; }
+      #mobile-pwa { display: block !important; }
+    }
+
+    /* 테마 색상 토큰 (페이퍼 / 민트 / 다크) */
+    .theme-paper { background-color: #f5f5f4; color: #1e293b; }
+    .theme-paper .theme-card { background-color: #ffffff; border-color: #e7e5e4; color: #1e293b; }
+
+    .theme-mint { background-color: #ecfdf5; color: #0f172a; }
+    .theme-mint .theme-card { background-color: #ffffff; border-color: #d1fae5; color: #0f172a; }
+
+    .theme-dark { background-color: #0f172a; color: #f1f5f9; }
+    .theme-dark .theme-card { background-color: #1e293b; border-color: #334155; color: #f1f5f9; }
+    .theme-dark .dark-sub-bg { background-color: #0f172a !important; border-color: #334155 !important; color: #f1f5f9 !important; }
+    .theme-dark .dark-btn { background-color: #334155 !important; border-color: #475569 !important; color: #f1f5f9 !important; }
+    .theme-dark .dark-divider { border-color: #334155 !important; }
+  </style>
+</head>
+<body class="theme-paper transition-colors duration-300 select-none">
+
+  <!-- 야간 눈부심 방지 디밍 오버레이 -->
+  <div id="night-dimmer-overlay" class="fixed inset-0 bg-black pointer-events-none z-40 transition-opacity duration-500" style="opacity: 0;"></div>
+
+  <!-- ===================================================================== -->
+  <!-- 1. 데스크톱 16:9 와이드 키오스크 화면 (데비안 13 XFCE 상시 모니터용)    -->
+  <!-- ===================================================================== -->
+  <div id="desktop-kiosk" class="w-screen h-screen flex p-2.5 gap-2 overflow-hidden">
+
+    <!-- 상단 고정 시계 & 실시간 날씨 + 미세먼지·자외선 헤더 -->
+    <header class="theme-card border rounded-xl px-3.5 py-2 shadow-xs flex items-center justify-between gap-3 shrink-0">
+      <!-- 좌측: 시계 & 날짜 -->
+      <div class="flex items-center gap-3 shrink-0">
+        <div class="flex items-baseline gap-1.5">
+          <span id="clock-ampm" class="text-xs font-extrabold text-indigo-600">오후</span>
+          <span id="clock-time" class="text-2xl font-black tracking-tight tabular-nums">03:00</span>
+          <span id="clock-sec" class="text-xs font-bold text-slate-400 tabular-nums">00</span>
+        </div>
+        <div class="h-6 w-px bg-stone-200 dark-divider"></div>
+        <div>
+          <div id="clock-date" class="text-xs font-extrabold">2026년 11월 27일 (금)</div>
+          <div class="flex items-center gap-1.5 text-[11px] font-bold text-slate-500">
+            <span id="header-city-label">📍 인천 논현동</span>
+            <span>·</span>
+            <span id="weather-outfit-tip" class="text-indigo-600 font-extrabold">🧥 도톰한 외투 챙기세요</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 중앙: 현재 날씨 + 미세/초미세먼지/자외선 신호등 + 내일·모레 예보 -->
+      <div onclick="openWeatherModal()" class="flex items-center gap-3 px-3 py-1 rounded-xl bg-stone-50/90 dark-sub-bg border border-stone-200/80 hover:border-indigo-400 cursor-pointer transition min-w-0">
+        <div class="flex items-center gap-2 shrink-0">
+          <span id="weather-icon" class="text-2xl">🌤️</span>
+          <div>
+            <div class="flex items-baseline gap-1">
+              <span id="weather-temp" class="text-lg font-black tabular-nums">12°</span>
+              <span id="weather-desc" class="text-xs font-extrabold">맑고 선선</span>
+            </div>
+            <div id="weather-minmax" class="text-[10px] font-bold text-slate-500 tabular-nums">최저 5° / 최고 14° · 강수 10%</div>
+          </div>
+        </div>
+
+        <div class="h-7 w-px bg-stone-200 dark-divider shrink-0"></div>
+
+        <!-- 미세먼지 · 초미세먼지 · 자외선 신호등 -->
+        <div class="flex items-center gap-1.5 shrink-0">
+          <span id="badge-pm10" class="px-2 py-0.5 rounded-md text-[10px] font-extrabold border bg-emerald-100 text-emerald-800 border-emerald-200">미세 좋음</span>
+          <span id="badge-pm25" class="px-2 py-0.5 rounded-md text-[10px] font-extrabold border bg-emerald-100 text-emerald-800 border-emerald-200">초미세 좋음</span>
+          <span id="badge-uv" class="px-2 py-0.5 rounded-md text-[10px] font-extrabold border bg-amber-100 text-amber-800 border-amber-200">자외선 보통</span>
+        </div>
+
+        <div class="h-7 w-px bg-stone-200 dark-divider hidden xl:block shrink-0"></div>
+
+        <!-- 내일 & 모레 미니 예보 -->
+        <div class="hidden xl:flex items-center gap-2 text-[11px] font-bold shrink-0">
+          <div class="flex items-center gap-1">
+            <span class="text-slate-400">내일</span>
+            <span id="tomorrow-icon">☀️</span>
+            <span id="tomorrow-temp" class="tabular-nums">4°/13°</span>
+          </div>
+          <div class="flex items-center gap-1">
+            <span class="text-slate-400">모레</span>
+            <span id="dayafter-icon">⛅</span>
+            <span id="dayafter-temp" class="tabular-nums">6°/15°</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 우측: 제어 버튼 바 (시트연동, 화면배치, 테마, 전체화면, 통합설정) -->
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button id="sync-status-btn" onclick="handleSyncButtonClick()" class="px-2.5 py-1.5 rounded-lg text-xs font-extrabold bg-stone-100 dark-btn hover:bg-stone-200 border border-stone-200/80 transition cursor-pointer flex items-center gap-1">
+          <span id="sync-dot" class="w-2 h-2 rounded-full bg-amber-500"></span>
+          <span id="sync-label">로컬</span>
+        </button>
+
+        <button id="quick-layout-btn" onclick="toggleQuickLayoutEdit()" class="px-2.5 py-1.5 rounded-lg text-xs font-extrabold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 transition cursor-pointer">
+          🎛️ 화면배치
+        </button>
+
+        <button onclick="openBackupModal()" class="px-2.5 py-1.5 rounded-lg text-xs font-extrabold bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition cursor-pointer" title="수동 백업 및 자동 백업 복원">
+          💾 백업
+        </button>
+
+        <div class="flex items-center bg-stone-100 dark-sub-bg p-0.5 rounded-lg border border-stone-200/80">
+          <button onclick="setTheme('paper')" class="px-1.5 py-1 rounded text-[10px] font-extrabold hover:bg-white/80 cursor-pointer" title="따뜻한 페이퍼">☀️</button>
+          <button onclick="setTheme('mint')" class="px-1.5 py-1 rounded text-[10px] font-extrabold hover:bg-white/80 cursor-pointer" title="산뜻한 민트">🌿</button>
+          <button onclick="setTheme('dark')" class="px-1.5 py-1 rounded text-[10px] font-extrabold hover:bg-slate-700 cursor-pointer" title="야간 다크">🌙</button>
+        </div>
+
+        <button onclick="toggleFullscreen()" class="px-2 py-1.5 rounded-lg text-xs font-extrabold bg-stone-100 dark-btn hover:bg-stone-200 border border-stone-200/80 cursor-pointer" title="전체화면">⛶</button>
+
+        <button onclick="openSettingsModal('layout')" class="px-3 py-1.5 rounded-lg text-xs font-extrabold bg-indigo-600 hover:bg-indigo-500 text-white shadow-2xs transition cursor-pointer">
+          ⚙️ 통합설정
+        </button>
+      </div>
+    </header>
+
+    <!-- 메인 8열 가변 위젯 그리드 -->
+    <main id="kiosk-grid" class="flex-1 min-h-0">
+      <div id="kiosk-main-area">
+
+      <!-- [위젯 1] 달력 & 상세 일정 (날짜 칸은 점 표시만, 상세 내용은 우측에서 확인) -->
+      <section id="widget-calendar" data-widget-id="calendar" class="theme-card border rounded-xl p-3 shadow-xs flex flex-col min-h-0 relative">
+        <div class="widget-edit-bar hidden items-center justify-between gap-1 mb-1.5 px-2 py-1 rounded-lg bg-amber-100/95 border border-amber-300 text-[11px] font-extrabold text-amber-950 shrink-0"></div>
+        <div class="flex items-center justify-between pb-1.5 mb-1.5 border-b border-stone-200/70 dark-divider shrink-0 gap-1">
+          <div class="flex items-center gap-1.5 min-w-0">
+            <span class="text-sm">📅</span>
+            <h2 id="cal-month-title" class="board-title-text font-extrabold tracking-tight tabular-nums shrink-0">2026년 11월</h2>
+            <button id="gcal-jump-badge" onclick="openGcalListModal()" class="px-1.5 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-100 text-sky-800 border border-sky-200 hover:bg-sky-200 cursor-pointer shrink-0" title="전체 일정 목록 보기">📆 전체일정</button>
+          </div>
+          <div class="flex items-center gap-1 shrink-0">
+            <button onclick="changeMonth(-1)" class="px-1.5 py-0.5 rounded bg-stone-100 dark-btn text-xs font-bold cursor-pointer">◀</button>
+            <button onclick="goToday()" class="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 text-[11px] font-extrabold cursor-pointer">오늘</button>
+            <button onclick="changeMonth(1)" class="px-1.5 py-0.5 rounded bg-stone-100 dark-btn text-xs font-bold cursor-pointer">▶</button>
+          </div>
+        </div>
+
+        <div class="widget-body-wrap widget-stack-on-eighth grid grid-cols-12 gap-2.5 flex-1 min-h-0">
+          <!-- 좌측: 월간 달력 그리드 -->
+          <div class="col-span-7 flex flex-col min-h-0">
+            <div class="grid grid-cols-7 text-center text-[10px] font-extrabold pb-1 shrink-0">
+              <span class="text-rose-500">일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span class="text-blue-500">토</span>
+            </div>
+            <div id="calendar-grid" class="grid grid-cols-7 grid-rows-6 gap-1 flex-1 min-h-0"></div>
+          </div>
+
+          <!-- 우측: 선택한 날짜 일정 & 빠른 추가 -->
+          <div class="widget-hide-on-eighth col-span-5 bg-stone-50/90 dark-sub-bg border border-stone-200/80 rounded-lg p-2 flex flex-col min-h-0">
+            <div class="flex items-center justify-between pb-1 mb-1 border-b border-stone-200/70 dark-divider shrink-0">
+              <span id="selected-date-label" class="text-xs font-extrabold text-indigo-600">오늘 일정</span>
+              <span id="selected-date-count" class="text-[10px] font-bold text-slate-400">0건</span>
+            </div>
+            <ul id="selected-day-events" class="flex-1 overflow-y-auto thin-scroll space-y-1 pr-0.5 min-h-0"></ul>
+            <form onsubmit="addEventFromDesktop(event)" class="pt-1.5 mt-1 border-t border-stone-200/70 dark-divider flex flex-col gap-1 shrink-0">
+              <div class="flex gap-1">
+                <select id="event-member-select" class="px-1.5 py-1 rounded bg-white dark-sub-bg border border-stone-300 text-[11px] font-bold"></select>
+                <input id="event-time-input" type="time" value="16:00" class="px-1.5 py-1 rounded bg-white dark-sub-bg border border-stone-300 text-[11px] font-bold tabular-nums" />
+              </div>
+              <div class="flex gap-1">
+                <input id="event-title-input" type="text" placeholder="새 일정 입력..." class="flex-1 min-w-0 px-2 py-1 rounded bg-white dark-sub-bg border border-stone-300 text-xs" />
+                <button type="submit" class="px-2.5 py-1 rounded bg-indigo-600 text-white text-xs font-extrabold cursor-pointer shrink-0">추가</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <!-- [위젯 2] 주간 시간표 표 & 준비물 (세로형 레이아웃: 상단 시간표 / 하단 좌우 준비물) -->
+      <section id="widget-school" data-widget-id="school" class="theme-card border rounded-xl p-3 shadow-xs flex flex-col min-h-0 relative">
+        <div class="widget-edit-bar hidden items-center justify-between gap-1 mb-1.5 px-2 py-1 rounded-lg bg-amber-100/95 border border-amber-300 text-[11px] font-extrabold text-amber-950 shrink-0"></div>
+        <div class="flex items-center justify-between pb-1.5 mb-1.5 border-b border-stone-200/70 dark-divider shrink-0 gap-1">
+          <div class="flex items-center gap-1.5 min-w-0">
+            <span class="text-sm">🎒</span>
+            <h2 class="board-title-text font-extrabold tracking-tight truncate">주간 시간표 &amp; 준비물</h2>
+          </div>
+          <div class="flex items-center gap-1 shrink-0">
+            <div id="weekday-selector" class="flex items-center gap-0.5 bg-stone-100 dark-sub-bg p-0.5 rounded-lg text-[11px] font-bold"></div>
+            <button onclick="openSettingsModal('school')" class="widget-hide-on-eighth px-2 py-0.5 rounded-md text-[11px] font-bold bg-stone-100 dark-btn hover:bg-stone-200 transition cursor-pointer">표 편집 ✎</button>
+          </div>
+        </div>
+
+        <div class="widget-body-wrap flex flex-col gap-2 flex-1 min-h-0">
+          <!-- 위쪽: 초등 주간 시간표 표 + 유치원 시간표 한 번에 표시 -->
+          <div class="flex-[1.35] bg-stone-50/90 dark-sub-bg border border-stone-200/80 rounded-lg p-1.5 flex flex-col min-h-0 overflow-hidden">
+            <div id="weekly-timetable-matrix" class="flex-1 overflow-auto thin-scroll min-h-0"></div>
+          </div>
+
+          <!-- 아래쪽: 좌측 하린 준비물 / 우측 하니하루 준비물 -->
+          <div class="flex-1 grid grid-cols-2 gap-2 min-h-0">
+            <div class="bg-emerald-50/75 dark-sub-bg border border-emerald-200/80 rounded-lg p-1.5 flex flex-col min-h-0">
+              <div class="flex items-center justify-between mb-1 shrink-0">
+                <span class="px-1.5 py-0.2 rounded text-[10px] font-extrabold bg-emerald-600 text-white">하린 준비물</span>
+              </div>
+              <div id="elem-supplies" class="flex-1 overflow-y-auto thin-scroll space-y-1 pr-0.5 min-h-0"></div>
+            </div>
+
+            <div class="bg-amber-50/75 dark-sub-bg border border-amber-200/80 rounded-lg p-1.5 flex flex-col min-h-0">
+              <div class="flex items-center justify-between mb-1 shrink-0">
+                <span class="px-1.5 py-0.2 rounded text-[10px] font-extrabold bg-amber-500 text-white">하니하루 준비물</span>
+              </div>
+              <div id="kinder-supplies" class="flex-1 overflow-y-auto thin-scroll space-y-1 pr-0.5 min-h-0"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- [위젯 3] 오늘의 통합 루틴 -->
+      <section id="widget-routine" data-widget-id="routine" class="theme-card border rounded-xl p-3 shadow-xs flex flex-col min-h-0 relative">
+        <div class="widget-edit-bar hidden items-center justify-between gap-1 mb-1.5 px-2 py-1 rounded-lg bg-amber-100/95 border border-amber-300 text-[11px] font-extrabold text-amber-950 shrink-0"></div>
+        <div class="flex items-center justify-between pb-1.5 mb-1.5 border-b border-stone-200/70 dark-divider shrink-0 gap-1">
+          <div class="flex items-center gap-1.5 min-w-0">
+            <span class="text-sm">✅</span>
+            <h2 class="board-title-text font-extrabold tracking-tight truncate">오늘의 통합 루틴</h2>
+            <span id="routine-progress-text" class="px-1.5 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-50 text-indigo-700 tabular-nums">0%</span>
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <div class="flex items-center gap-1 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg">
+              <span class="text-xs">⭐</span>
+              <span id="star-count" class="text-xs font-black text-amber-700 tabular-nums">12</span>
+              <button onclick="changeStar(1)" class="w-4 h-4 rounded bg-amber-400 text-white text-[10px] font-black leading-none cursor-pointer">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="w-full h-1.5 bg-stone-100 dark-sub-bg rounded-full overflow-hidden mb-2 shrink-0">
+          <div id="routine-progress-bar" class="h-full bg-indigo-500 transition-all duration-300" style="width: 0%"></div>
+        </div>
+
+        <ul id="routine-list" class="widget-body-wrap flex-1 overflow-y-auto thin-scroll space-y-1 pr-0.5 min-h-0"></ul>
+
+        <form onsubmit="addRoutineFromDesktop(event)" class="pt-1.5 mt-1.5 border-t border-stone-200/70 dark-divider flex items-center gap-1 shrink-0">
+          <select id="routine-member-select" class="px-1.5 py-1 rounded bg-stone-100 dark-sub-bg border border-stone-300 text-[11px] font-bold"></select>
+          <input id="routine-time-input" type="time" value="19:00" class="px-1.5 py-1 rounded bg-stone-100 dark-sub-bg border border-stone-300 text-[11px] font-bold tabular-nums" />
+          <input id="routine-text-input" type="text" placeholder="새 루틴 추가..." class="flex-1 min-w-0 px-2 py-1 rounded bg-stone-100 dark-sub-bg border border-stone-300 text-xs" />
+          <button type="submit" class="px-2.5 py-1 rounded bg-indigo-600 text-white text-xs font-extrabold cursor-pointer shrink-0">추가</button>
+        </form>
+      </section>
+
+      <!-- [위젯 4] 가족 공유 메모 -->
+      <section id="widget-memo" data-widget-id="memo" class="theme-card border rounded-xl p-3 shadow-xs flex flex-col min-h-0 relative">
+        <div class="widget-edit-bar hidden items-center justify-between gap-1 mb-1.5 px-2 py-1 rounded-lg bg-amber-100/95 border border-amber-300 text-[11px] font-extrabold text-amber-950 shrink-0"></div>
+        <div class="flex items-center justify-between pb-1.5 mb-1.5 border-b border-stone-200/70 dark-divider shrink-0">
+          <div class="flex items-center gap-1 min-w-0">
+            <span class="text-sm">📝</span>
+            <h2 class="board-title-text font-extrabold tracking-tight truncate">가족 메모</h2>
+          </div>
+          <span id="memo-count-badge" class="px-1.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 tabular-nums">3개</span>
+        </div>
+
+        <ul id="memo-list" class="widget-body-wrap flex-1 overflow-y-auto thin-scroll space-y-1 pr-0.5 min-h-0"></ul>
+
+        <form onsubmit="addMemoFromDesktop(event)" class="pt-1.5 mt-1.5 border-t border-stone-200/70 dark-divider flex gap-1 shrink-0">
+          <input id="memo-input" type="text" placeholder="장보기/메모..." class="flex-1 min-w-0 px-2 py-1 rounded bg-stone-100 dark-sub-bg border border-stone-300 text-xs" />
+          <button type="submit" class="px-2 py-1 rounded bg-amber-500 text-white text-xs font-extrabold cursor-pointer shrink-0">+</button>
+        </form>
+      </section>
+
+      <!-- [위젯 5] 오늘 식단 (급식 사진 + 집밥/솜씨요리 200선) -->
+      <section id="widget-meal" data-widget-id="meal" class="theme-card border rounded-xl p-3 shadow-xs flex flex-col min-h-0 relative">
+        <div class="widget-edit-bar hidden items-center justify-between gap-1 mb-1.5 px-2 py-1 rounded-lg bg-amber-100/95 border border-amber-300 text-[11px] font-extrabold text-amber-950 shrink-0"></div>
+        <div class="flex items-center justify-between pb-1.5 mb-1.5 border-b border-stone-200/70 dark-divider shrink-0">
+          <div class="flex items-center gap-1 min-w-0">
+            <span class="text-sm">🍱</span>
+            <h2 class="board-title-text font-extrabold tracking-tight truncate">오늘 식단</h2>
+          </div>
+          <div class="flex items-center gap-1 shrink-0">
+            <button onclick="openSettingsModal('meals200')" class="px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 cursor-pointer" title="집밥 100 · 솜씨요리 100 선택">200선</button>
+            <button onclick="recommendDinner()" class="px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-orange-100 text-orange-800 border border-orange-200 hover:bg-orange-200 cursor-pointer" title="랜덤 추천">🎲</button>
+          </div>
+        </div>
+
+        <div class="widget-body-wrap flex flex-col gap-1.5 flex-1 min-h-0">
+          <div onclick="openMealModal('lunch')" class="flex-1 bg-stone-50/90 dark-sub-bg border border-stone-200/80 hover:border-indigo-400 rounded-lg p-2 flex flex-col justify-between cursor-pointer transition min-h-0 relative overflow-hidden">
+            <div class="flex items-center justify-between z-10">
+              <span class="px-1.5 py-0.2 rounded text-[10px] font-extrabold bg-emerald-100 text-emerald-700 border border-emerald-200">하린 급식</span>
+              <span id="lunch-photo-badge" class="text-[10px] font-bold text-indigo-600">📷 사진/수정</span>
+            </div>
+            <p id="school-lunch-text" class="board-content-text font-extrabold leading-snug line-clamp-2 mt-0.5 z-10"></p>
+          </div>
+
+          <div onclick="openMealModal('dinner')" class="flex-1 bg-orange-50/85 dark-sub-bg border border-orange-200/80 hover:border-orange-400 rounded-lg p-2 flex flex-col justify-between cursor-pointer transition min-h-0">
+            <div class="flex items-center justify-between">
+              <span class="px-1.5 py-0.2 rounded text-[10px] font-extrabold bg-orange-500 text-white">우리 집 저녁</span>
+              <span class="text-[10px] font-bold text-orange-700/70">수정 ✎</span>
+            </div>
+            <p id="family-dinner-text" class="board-content-text font-extrabold leading-snug line-clamp-2 mt-0.5"></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- [위젯 6] 학사일정 · 공과금 · 빌려온 물건 D-Day 통합 보드 -->
+      <section id="widget-ddayboard" data-widget-id="ddayboard" class="theme-card border rounded-xl p-3 shadow-xs flex flex-col min-h-0 relative">
+        <div class="widget-edit-bar hidden items-center justify-between gap-1 mb-1.5 px-2 py-1 rounded-lg bg-amber-100/95 border border-amber-300 text-[11px] font-extrabold text-amber-950 shrink-0"></div>
+        <div class="flex items-center justify-between pb-1.5 mb-1.5 border-b border-stone-200/70 dark-divider shrink-0">
+          <div class="flex items-center gap-1 min-w-0">
+            <span class="text-sm">⏳</span>
+            <h2 class="board-title-text font-extrabold tracking-tight truncate">학사·결제·대여 D-Day</h2>
+          </div>
+          <button onclick="openSettingsModal('dday')" class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-stone-100 dark-btn hover:bg-stone-200 transition cursor-pointer shrink-0">관리 ✎</button>
+        </div>
+        <div id="dday-board-list" class="widget-body-wrap flex-1 overflow-y-auto thin-scroll flex flex-col gap-1.5 pr-0.5 min-h-0"></div>
+      </section>
+
+      <!-- [위젯 7] 하교·하원 & 학원 픽업 타임라인 -->
+      <section id="widget-pickup" data-widget-id="pickup" class="theme-card border rounded-xl p-3 shadow-xs flex flex-col min-h-0 relative">
+        <div class="widget-edit-bar hidden items-center justify-between gap-1 mb-1.5 px-2 py-1 rounded-lg bg-amber-100/95 border border-amber-300 text-[11px] font-extrabold text-amber-950 shrink-0"></div>
+        <div class="flex items-center justify-between pb-1.5 mb-1.5 border-b border-stone-200/70 dark-divider shrink-0">
+          <div class="flex items-center gap-1 min-w-0">
+            <span class="text-sm">🚐</span>
+            <h2 class="board-title-text font-extrabold tracking-tight truncate">하원·학원 픽업</h2>
+          </div>
+          <button onclick="openSettingsModal('pickup')" class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-stone-100 dark-btn hover:bg-stone-200 transition cursor-pointer shrink-0">설정 ✎</button>
+        </div>
+        <div id="pickup-timeline-bar" class="widget-body-wrap flex-1 overflow-y-auto thin-scroll flex flex-col gap-1.5 pr-0.5 min-h-0"></div>
+      </section>
+
+      </div>
+      <div id="kiosk-line-area"></div>
+    </main>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- 2. 스마트폰 리모컨 PWA 화면 (부부 폰에서 입력/사진촬영/설정용)         -->
+  <!-- ===================================================================== -->
+  <div id="mobile-pwa" class="min-h-screen bg-stone-100 text-slate-800 pb-20">
+    <div class="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-stone-200 px-4 py-3 flex items-center justify-between">
+      <div>
+        <div class="text-xs font-bold text-indigo-600">우리 집 가족 대시보드 리모컨</div>
+        <div id="mob-header-date" class="text-sm font-black">오늘 일정 &amp; 메모</div>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <button id="mob-sync-btn" onclick="handleSyncButtonClick()" class="px-2.5 py-1.5 rounded-lg bg-stone-100 border border-stone-200 text-xs font-extrabold flex items-center gap-1">
+          <span id="mob-sync-dot" class="w-2 h-2 rounded-full bg-amber-500"></span>
+          <span id="mob-sync-label">로컬</span>
+        </button>
+        <button onclick="openSettingsModal('sync')" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-extrabold">⚙️ 설정</button>
+      </div>
+    </div>
+
+    <!-- 모바일 탭 1: 메모 & 식단 -->
+    <div id="mob-panel-memo" class="p-3.5 space-y-3">
+      <div class="bg-white rounded-2xl p-3.5 border border-stone-200 shadow-2xs">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-sm font-extrabold">📝 가족 공유 메모 / 장보기</h3>
+          <span id="mob-memo-count" class="text-xs font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">3개 남음</span>
+        </div>
+        <form onsubmit="addMemoMobile(event)" class="flex gap-1.5 mb-3">
+          <input id="mob-memo-input" type="text" placeholder="마트 장보기, 전달사항 입력..." class="flex-1 px-3 py-2.5 rounded-xl bg-stone-100 border border-stone-200 text-sm" />
+          <button type="submit" class="px-4 py-2.5 rounded-xl bg-amber-500 text-white text-sm font-extrabold shrink-0">등록</button>
+        </form>
+        <ul id="mob-memo-list" class="space-y-1.5"></ul>
+      </div>
+
+      <div class="bg-white rounded-2xl p-3.5 border border-stone-200 shadow-2xs space-y-2.5">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-extrabold">🍱 오늘 급식 &amp; 저녁 메뉴</h3>
+          <div class="flex gap-1.5">
+            <button onclick="openSettingsModal('meals200')" class="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-extrabold">200선 선택</button>
+            <button onclick="recommendDinner()" class="px-2.5 py-1 rounded-lg bg-orange-100 text-orange-800 text-xs font-extrabold">🎲 랜덤</button>
+          </div>
+        </div>
+        <div onclick="openMealModal('lunch')" class="p-3 rounded-xl bg-stone-50 border border-stone-200">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-[11px] font-extrabold text-emerald-700">하린 점심 급식 (📷 사진찍기 / 텍스트 수정)</span>
+          </div>
+          <div id="mob-lunch-text" class="text-sm font-bold"></div>
+          <img id="mob-lunch-photo-preview" class="hidden mt-2 w-full max-h-48 object-contain rounded-lg border border-stone-200 bg-white" />
+        </div>
+        <div onclick="openMealModal('dinner')" class="p-3 rounded-xl bg-orange-50 border border-orange-200">
+          <div class="text-[11px] font-extrabold text-orange-700 mb-0.5">우리 집 저녁 메뉴 (터치하여 수정)</div>
+          <div id="mob-dinner-text" class="text-sm font-bold"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 모바일 탭 2: 일정 & 학사·결제·대여 D-Day -->
+    <div id="mob-panel-sched" class="hidden p-3.5 space-y-3">
+      <div class="bg-white rounded-2xl p-3.5 border border-stone-200 shadow-2xs">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-sm font-extrabold">⏳ 학사일정 · 공과금 · 빌려온 물건 D-Day</h3>
+          <button onclick="openSettingsModal('dday')" class="text-xs font-bold text-indigo-600">관리 ✎</button>
+        </div>
+        <div id="mob-billing-list" class="flex flex-col gap-1.5"></div>
+      </div>
+
+      <div class="bg-white rounded-2xl p-3.5 border border-stone-200 shadow-2xs">
+        <h3 class="text-sm font-extrabold mb-2">🚐 오늘 하원·학원 픽업</h3>
+        <div id="mob-pickup-list" class="space-y-1.5"></div>
+      </div>
+
+      <div class="bg-white rounded-2xl p-3.5 border border-stone-200 shadow-2xs">
+        <h3 class="text-sm font-extrabold mb-2">📅 다가오는 가족 일정</h3>
+        <form onsubmit="addEventMobile(event)" class="space-y-2 mb-3">
+          <div class="flex gap-1.5">
+            <select id="mob-ev-member" class="px-2.5 py-2 rounded-xl bg-stone-100 border border-stone-200 text-xs font-bold"></select>
+            <input id="mob-ev-date" type="date" class="flex-1 px-2.5 py-2 rounded-xl bg-stone-100 border border-stone-200 text-xs font-bold" />
+            <input id="mob-ev-time" type="time" value="15:00" class="px-2.5 py-2 rounded-xl bg-stone-100 border border-stone-200 text-xs font-bold" />
+          </div>
+          <div class="flex gap-1.5">
+            <input id="mob-ev-title" type="text" placeholder="일정 제목 입력..." class="flex-1 px-3 py-2 rounded-xl bg-stone-100 border border-stone-200 text-sm" />
+            <button type="submit" class="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-extrabold">추가</button>
+          </div>
+        </form>
+        <ul id="mob-upcoming-events" class="space-y-1.5"></ul>
+      </div>
+    </div>
+
+    <!-- 모바일 탭 3: 루틴 & 준비물 -->
+    <div id="mob-panel-routine" class="hidden p-3.5 space-y-3">
+      <div class="bg-white rounded-2xl p-3.5 border border-stone-200 shadow-2xs">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-sm font-extrabold">✅ 오늘의 통합 루틴</h3>
+          <div class="flex items-center gap-1 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-xl">
+            <span>⭐</span>
+            <span id="mob-star-count" class="text-xs font-black text-amber-700">12</span>
+            <button onclick="changeStar(1)" class="w-5 h-5 rounded bg-amber-400 text-white text-xs font-black ml-1">+</button>
+          </div>
+        </div>
+        <form onsubmit="addRoutineMobile(event)" class="flex gap-1.5 mb-3">
+          <select id="mob-rt-member" class="px-2 py-2 rounded-xl bg-stone-100 border border-stone-200 text-xs font-bold"></select>
+          <input id="mob-rt-time" type="time" value="19:00" class="px-2 py-2 rounded-xl bg-stone-100 border border-stone-200 text-xs font-bold" />
+          <input id="mob-rt-text" type="text" placeholder="루틴 입력..." class="flex-1 px-2.5 py-2 rounded-xl bg-stone-100 border border-stone-200 text-sm" />
+          <button type="submit" class="px-3 py-2 rounded-xl bg-indigo-600 text-white text-xs font-extrabold">추가</button>
+        </form>
+        <ul id="mob-routine-list" class="space-y-1.5"></ul>
+      </div>
+
+      <div class="bg-white rounded-2xl p-3.5 border border-stone-200 shadow-2xs space-y-2.5">
+        <h3 class="text-sm font-extrabold">🎒 오늘 학교·유치원 준비물 체크</h3>
+        <div>
+          <div class="text-xs font-extrabold text-emerald-700 mb-1">하린 (초등)</div>
+          <div id="mob-elem-supplies" class="space-y-1"></div>
+        </div>
+        <div>
+          <div class="text-xs font-extrabold text-amber-700 mb-1">하니하루 (유치원)</div>
+          <div id="mob-kinder-supplies" class="space-y-1"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 모바일 하단 탭 바 -->
+    <nav class="fixed bottom-0 inset-x-0 bg-white border-t border-stone-200 grid grid-cols-3 py-2 z-30 text-xs font-extrabold">
+      <button onclick="switchMobileTab('memo')" id="mtab-memo" class="flex flex-col items-center gap-0.5 text-indigo-600"><span>📝</span><span>메모·식단</span></button>
+      <button onclick="switchMobileTab('sched')" id="mtab-sched" class="flex flex-col items-center gap-0.5 text-slate-400"><span>📅</span><span>일정·D-Day</span></button>
+      <button onclick="switchMobileTab('routine')" id="mtab-routine" class="flex flex-col items-center gap-0.5 text-slate-400"><span>✅</span><span>루틴·준비물</span></button>
+    </nav>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- 3. 올인원 통합 설정 모달 (하드코딩 제로)                              -->
+  <!-- ===================================================================== -->
+  <div id="settings-modal" onclick="if(event.target===this) closeModal('settings-modal')" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-50 p-3 sm:p-5">
+    <div class="theme-card border rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden text-xs">
+      <!-- 모달 헤더 -->
+      <div class="px-5 py-3.5 border-b border-stone-200/80 dark-divider flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-2">
+          <span class="text-lg">⚙️</span>
+          <div>
+            <h3 class="text-sm font-black">우리 집 대시보드 올인원 통합 설정</h3>
+            <p class="text-[11px] text-slate-400">모든 설정은 구글 시트에 자동 저장되어 부부 폰과 미니스틱 PC에 함께 적용됩니다.</p>
+          </div>
+        </div>
+        <button onclick="closeModal('settings-modal')" class="px-3 py-1.5 rounded-lg bg-stone-100 dark-btn font-extrabold cursor-pointer">닫기 ✕</button>
+      </div>
+
+      <!-- 설정 탭 네비게이션 -->
+      <div class="flex items-center gap-1 px-5 pt-2.5 border-b border-stone-200/80 dark-divider overflow-x-auto shrink-0 text-xs font-extrabold">
+        <button onclick="switchSettingsTab('layout')" id="stab-layout" class="px-3 py-2 border-b-2 border-indigo-600 text-indigo-600 cursor-pointer shrink-0">🎛️ 화면배치·크기</button>
+        <button onclick="switchSettingsTab('sync')" id="stab-sync" class="px-3 py-2 border-b-2 border-transparent text-slate-500 cursor-pointer shrink-0">☁️ 시트·캘린더·QR</button>
+        <button onclick="switchSettingsTab('dday')" id="stab-dday" class="px-3 py-2 border-b-2 border-transparent text-slate-500 cursor-pointer shrink-0">⏳ 학사·결제·대여</button>
+        <button onclick="switchSettingsTab('meals200')" id="stab-meals200" class="px-3 py-2 border-b-2 border-transparent text-slate-500 cursor-pointer shrink-0">🍲 집밥·요리 200선</button>
+        <button onclick="switchSettingsTab('school')" id="stab-school" class="px-3 py-2 border-b-2 border-transparent text-slate-500 cursor-pointer shrink-0">🎒 시간표 표·준비물</button>
+        <button onclick="switchSettingsTab('pickup')" id="stab-pickup" class="px-3 py-2 border-b-2 border-transparent text-slate-500 cursor-pointer shrink-0">🚐 하원·학원 픽업</button>
+        <button onclick="switchSettingsTab('members')" id="stab-members" class="px-3 py-2 border-b-2 border-transparent text-slate-500 cursor-pointer shrink-0">👨‍👩‍👧‍👦 구성원</button>
+        <button onclick="switchSettingsTab('general')" id="stab-general" class="px-3 py-2 border-b-2 border-transparent text-slate-500 cursor-pointer shrink-0">🔤 폰트·야간·리셋</button>
+      </div>
+
+      <!-- 모달 본문 영역 -->
+      <div class="p-5 overflow-y-auto thin-scroll flex-1 space-y-4">
+
+        <!-- [탭 1] 화면 배치 · 크기(M · MM가로 · MM세로 · L · Line) · 숨김 -->
+        <div id="spanel-layout" class="space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="font-extrabold text-sm">🎛️ 위젯 순서 이동 · 크기(M · MM · M/M · M/M/M · M/M/M/M · L · Line) · 숨김 관리</div>
+              <p class="text-[11px] text-slate-400"><b>M</b>(기본 1칸) · <b>MM</b>(가로 2배) · <b>M/M</b>(세로 2배) · <b>M/M/M</b>(세로 3배) · <b>M/M/M/M</b>(세로 4배) · <b>L</b>(가로·세로 2배) · <b>Line</b>(가로 한 줄)</p>
+            </div>
+            <button onclick="resetWidgetLayout()" class="px-3 py-1.5 rounded-lg bg-stone-100 dark-btn font-bold cursor-pointer">기본 배치로 초기화</button>
+          </div>
+          <div id="set-layout-list" class="space-y-2"></div>
+        </div>
+
+        <!-- [탭 2] 구글 시트 · 구글 캘린더 · QR코드 & 자동로그인 북마크 -->
+        <div id="spanel-sync" class="hidden space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+            <div class="md:col-span-8 space-y-3">
+              <!-- 구글 시트 웹 앱 URL -->
+              <div class="p-3.5 rounded-xl bg-indigo-50/70 dark-sub-bg border border-indigo-200/80 space-y-2">
+                <div class="font-extrabold text-indigo-900 dark:text-indigo-300">1. 구글 스프레드시트 Apps Script 웹 앱 URL</div>
+                <input id="set-sheet-url" type="url" placeholder="https://script.google.com/macros/s/.../exec" class="w-full px-3 py-2 rounded-lg bg-white dark-sub-bg border border-stone-300 font-mono text-xs" />
+                <div class="flex flex-wrap gap-2">
+                  <button onclick="saveSheetUrlFromSettings()" class="px-3.5 py-1.5 rounded-lg bg-indigo-600 text-white font-extrabold cursor-pointer">URL 저장 &amp; 즉시 동기화</button>
+                  <button onclick="copyAutoLoginUrl()" class="px-3.5 py-1.5 rounded-lg bg-emerald-600 text-white font-extrabold cursor-pointer">🔗 북마크용 자동로그인 URL 복사</button>
+                </div>
+                <p class="text-[11px] text-slate-500">※ 데비안 13 XFCE 자동실행 주소에 위 <b>북마크용 URL</b>을 넣으면 재부팅해도 절대 시트 연동이 풀리지 않습니다.</p>
+              </div>
+
+              <!-- 구글 캘린더 연동 -->
+              <div class="p-3.5 rounded-xl bg-sky-50/70 dark-sub-bg border border-sky-200/80 space-y-2">
+                <div class="flex items-center justify-between">
+                  <span class="font-extrabold text-sky-900 dark:text-sky-300">2. 구글 캘린더 일정 자동 불러오기</span>
+                  <span class="text-[10px] text-slate-500">구글 캘린더 설정 &gt; 캘린더 ID</span>
+                </div>
+                <div class="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-[11px] text-amber-950 leading-relaxed">
+                  ⚠️ <b>캘린더가 안 불러와질 때 필수 확인 2가지:</b><br/>
+                  ① <b>구글 시트를 만든 계정</b>과 <b>연동할 캘린더 계정(`roonirin@gmail.com`)</b>이 다르면, `roonirin@gmail.com` 구글 캘린더 설정 → <b>[특정 사용자와 공유]</b>에서 시트 소유자 이메일을 추가해 주세요.<br/>
+                  ② Apps Script에서 <b>[배포 &gt; 배포 관리 &gt; 연필(새 버전) &gt; 배포]</b>를 꼭 한 번 눌러야 반영됩니다!
+                </div>
+                <div id="set-gcal-list" class="space-y-1.5"></div>
+                <div class="flex items-center gap-1.5 pt-1">
+                  <select id="new-gcal-member" class="px-2 py-1.5 rounded-lg bg-white dark-sub-bg border border-stone-300 font-bold"></select>
+                  <input id="new-gcal-id" type="text" placeholder="예: roonirin@gmail.com 또는 ...@group.calendar.google.com" class="flex-1 px-2.5 py-1.5 rounded-lg bg-white dark-sub-bg border border-stone-300 font-mono" />
+                  <button onclick="addGoogleCalendarConfig()" class="px-3 py-1.5 rounded-lg bg-sky-600 text-white font-extrabold cursor-pointer shrink-0">캘린더 추가</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 우측: 와이프 폰 즉시 접속 QR코드 -->
+            <div class="md:col-span-4 p-3.5 rounded-xl bg-stone-50 dark-sub-bg border border-stone-200 flex flex-col items-center justify-center text-center space-y-2">
+              <div class="font-extrabold text-xs">📱 스마트폰 즉시 접속 QR</div>
+              <div class="p-2 bg-white rounded-xl border border-stone-200 shadow-2xs">
+                <img id="qr-code-img" alt="접속 QR코드" class="w-40 h-40 object-contain" />
+              </div>
+              <p class="text-[11px] text-slate-500 leading-snug">와이프 폰 카메라로 찍으면 시트 URL이 자동 포함된 대시보드로 바로 연결됩니다.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- [탭 3] 학사일정 · 공과금/정기결제 · 빌려온 물건 카운터 통합 관리 -->
+        <div id="spanel-dday" class="hidden space-y-4">
+          <div class="p-3.5 rounded-xl bg-emerald-50/60 dark-sub-bg border border-emerald-200 space-y-2">
+            <div class="font-extrabold text-emerald-900">🏫 학사일정 D-Day (방학 · 단기방학 · 재량휴업일 · 운동회)</div>
+            <div id="set-academic-list" class="space-y-1.5"></div>
+            <div class="grid grid-cols-12 gap-1.5 pt-1">
+              <select id="new-acad-who" class="col-span-3 px-2 py-1.5 rounded-lg bg-white dark-sub-bg border border-stone-300 font-bold">
+                <option value="하린(초등)">하린(초등)</option>
+                <option value="하니하루(유치원)">하니하루(유치원)</option>
+                <option value="공통">공통</option>
+              </select>
+              <input id="new-acad-date" type="date" class="col-span-4 px-2 py-1.5 rounded-lg bg-white dark-sub-bg border border-stone-300 font-bold" />
+              <input id="new-acad-title" type="text" placeholder="예: 겨울방학식, 재량휴업일" class="col-span-3 px-2.5 py-1.5 rounded-lg bg-white dark-sub-bg border border-stone-300 font-bold" />
+              <button onclick="addAcademicItem()" class="col-span-2 py-1.5 rounded-lg bg-emerald-600 text-white font-extrabold cursor-pointer">추가</button>
+            </div>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-sky-50/60 dark-sub-bg border border-sky-200 space-y-2">
+            <div class="font-extrabold text-sky-900">📚 빌려온 물건 &amp; 도서관 반납일 카운터</div>
+            <div id="set-borrowed-list" class="space-y-1.5"></div>
+            <div class="grid grid-cols-12 gap-1.5 pt-1">
+              <input id="new-borrow-title" type="text" placeholder="물건/책 이름 (예: 논현도서관 책 4권)" class="col-span-5 px-2 py-1.5 rounded-lg bg-white dark-sub-bg border border-stone-300 font-bold" />
+              <input id="new-borrow-from" type="text" placeholder="대여처 (예: 도서관/이웃)" class="col-span-3 px-2 py-1.5 rounded-lg bg-white dark-sub-bg border border-stone-300 font-bold" />
+              <input id="new-borrow-due" type="date" class="col-span-2 px-1.5 py-1.5 rounded-lg bg-white dark-sub-bg border border-stone-300 font-bold" title="반납 예정일" />
+              <button onclick="addBorrowedItem()" class="col-span-2 py-1.5 rounded-lg bg-sky-600 text-white font-extrabold cursor-pointer">추가</button>
+            </div>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-amber-50/60 dark-sub-bg border border-amber-200 space-y-2">
+            <div class="font-extrabold text-amber-900">💳 매월 공과금·보험료·정기결제 알림</div>
+            <div id="set-billing-list" class="space-y-1.5"></div>
+            <div class="grid grid-cols-12 gap-1.5 pt-1">
+              <div class="col-span-3 flex items-center gap-1">
+                <span class="font-bold">매월</span>
+                <input id="new-bill-day" type="number" min="1" max="31" value="25" class="w-14 px-1.5 py-1.5 rounded-lg bg-white dark-sub-bg border border-stone-300 font-bold text-center" />
+                <span class="font-bold">일</span>
+              </div>
+              <input id="new-bill-title" type="text" placeholder="항목명 (예: 아파트 관리비, 보험료)" class="col-span-7 px-2.5 py-1.5 rounded-lg bg-white dark-sub-bg border border-stone-300 font-bold" />
+              <button onclick="addBillingItem()" class="col-span-2 py-1.5 rounded-lg bg-amber-600 text-white font-extrabold cursor-pointer">추가</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- [탭 4] 집밥 100가지 & 솜씨요리 100가지 선택기 (다중 선택 지원) -->
+        <div id="spanel-meals200" class="hidden space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-1.5">
+              <button onclick="switchMealCatalogTab('home')" id="mcat-home" class="px-3 py-1.5 rounded-lg bg-orange-500 text-white font-extrabold cursor-pointer">🍲 일반 집밥 100가지</button>
+              <button onclick="switchMealCatalogTab('chef')" id="mcat-chef" class="px-3 py-1.5 rounded-lg bg-stone-100 dark-btn text-slate-700 font-extrabold cursor-pointer">👨‍🍳 솜씨요리 100가지</button>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <input id="meal-catalog-search" oninput="renderMealCatalog()" type="text" placeholder="요리 검색 (예: 찌개, 볶음, 찜)..." class="px-2.5 py-1.5 rounded-lg bg-stone-100 dark-sub-bg border border-stone-300 text-xs" />
+              <button onclick="pickRandomFromCatalog()" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white font-extrabold cursor-pointer">🎲 랜덤 추가</button>
+            </div>
+          </div>
+
+          <!-- 현재 선택된 다중 요리 뱃지 바 -->
+          <div class="p-2.5 rounded-xl bg-orange-50/90 dark-sub-bg border border-orange-200 flex flex-wrap items-center justify-between gap-2">
+            <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+              <span class="text-[11px] font-black text-orange-800 shrink-0">오늘 저녁 선택됨:</span>
+              <div id="selected-dinner-chips" class="flex flex-wrap gap-1"></div>
+            </div>
+            <button onclick="clearSelectedDinners()" class="px-2 py-1 rounded bg-white border border-orange-200 text-[11px] font-bold text-rose-600 cursor-pointer shrink-0">전체 비우기</button>
+          </div>
+
+          <p class="text-[11px] text-slate-500">여러 가지 요리를 클릭해서 <b>오늘 저녁 식단</b>에 함께 담거나 다시 클릭해 뺄 수 있습니다.</p>
+          <div id="meal-catalog-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 max-h-[300px] overflow-y-auto thin-scroll pr-1"></div>
+        </div>
+
+        <!-- [탭 5] 표 형식 주간 시간표 & 요일별 준비물 -->
+        <div id="spanel-school" class="hidden space-y-4">
+          <div class="p-3 rounded-xl bg-emerald-50/50 dark-sub-bg border border-emerald-200 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-extrabold text-emerald-900">📊 하린(초등) 주간 시간표 표 일괄 편집 (월~금 / 1~6교시)</span>
+              <button onclick="saveTimetableMatrixFromSettings()" class="px-3 py-1 rounded-lg bg-emerald-600 text-white font-extrabold cursor-pointer">시간표 표 저장</button>
+            </div>
+            <div id="set-timetable-matrix-editor" class="overflow-x-auto"></div>
+          </div>
+
+          <div class="p-3 rounded-xl bg-amber-50/50 dark-sub-bg border border-amber-200 space-y-2.5">
+            <div class="flex items-center justify-between">
+              <span class="font-extrabold text-amber-900">🎒 요일별 준비물 &amp; 하니하루(유치원) 활동 편집</span>
+              <div id="set-school-day-tabs" class="flex gap-1"></div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div class="space-y-1.5">
+                <label class="block text-[11px] font-bold text-emerald-800">하린 준비물 (쉼표 , 로 구분)</label>
+                <input id="set-elem-supp" type="text" class="w-full px-2.5 py-1.5 rounded-lg bg-white dark-sub-bg border border-stone-300" />
+              </div>
+              <div class="space-y-1.5">
+                <label class="block text-[11px] font-bold text-amber-800">하니하루 유치원 활동 / 준비물 (쉼표 구분)</label>
+                <input id="set-kinder-subj" type="text" placeholder="유치원 활동" class="w-full px-2.5 py-1.5 rounded-lg bg-white dark-sub-bg border border-stone-300 mb-1" />
+                <input id="set-kinder-supp" type="text" placeholder="준비물1, 준비물2" class="w-full px-2.5 py-1.5 rounded-lg bg-white dark-sub-bg border border-stone-300" />
+              </div>
+            </div>
+            <div class="flex justify-end">
+              <button onclick="saveSchoolFromSettings()" class="px-4 py-1.5 rounded-lg bg-indigo-600 text-white font-extrabold cursor-pointer">준비물·유치원 저장</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- [탭 6] 하교·하원 & 학원 픽업 타임라인 -->
+        <div id="spanel-pickup" class="hidden space-y-3">
+          <div class="font-extrabold text-sm">🚐 하교·하원 후 학원/픽업 타임라인 설정</div>
+          <div id="set-pickup-list" class="space-y-1.5"></div>
+          <div class="grid grid-cols-12 gap-1.5 pt-2 border-t border-stone-200/80 dark-divider">
+            <input id="new-pickup-time" type="time" value="15:30" class="col-span-3 px-2 py-1.5 rounded-lg bg-stone-100 dark-sub-bg border border-stone-300 font-bold" />
+            <input id="new-pickup-title" type="text" placeholder="내용 (예: 하린 태권도 차량)" class="col-span-5 px-2.5 py-1.5 rounded-lg bg-stone-100 dark-sub-bg border border-stone-300 font-bold" />
+            <select id="new-pickup-who" class="col-span-2 px-2 py-1.5 rounded-lg bg-stone-100 dark-sub-bg border border-stone-300 font-bold">
+              <option value="엄마">엄마</option>
+              <option value="아빠">아빠</option>
+              <option value="학원차">학원차</option>
+              <option value="할머니">할머니</option>
+            </select>
+            <button onclick="addPickupItem()" class="col-span-2 py-1.5 rounded-lg bg-indigo-600 text-white font-extrabold cursor-pointer">추가</button>
+          </div>
+        </div>
+
+        <!-- [탭 7] 우리 집 구성원 관리 -->
+        <div id="spanel-members" class="hidden space-y-3">
+          <div class="font-extrabold text-sm">👨‍👩‍👧‍👦 우리 집 구성원 및 배지 색상 관리</div>
+          <div id="set-members-list" class="space-y-1.5"></div>
+          <div class="flex items-center gap-2 pt-2 border-t border-stone-200/80 dark-divider">
+            <input id="new-member-name" type="text" placeholder="이름/호칭 (예: 엄마, 아빠, 할머니)" class="flex-1 px-3 py-1.5 rounded-lg bg-stone-100 dark-sub-bg border border-stone-300 font-bold" />
+            <select id="new-member-color" class="px-2.5 py-1.5 rounded-lg bg-stone-100 dark-sub-bg border border-stone-300 font-bold">
+              <option value="emerald">초록색</option>
+              <option value="amber">노란색</option>
+              <option value="blue">파란색</option>
+              <option value="purple">보라색</option>
+              <option value="rose">분홍색</option>
+            </select>
+            <button onclick="addMemberItem()" class="px-4 py-1.5 rounded-lg bg-indigo-600 text-white font-extrabold cursor-pointer">구성원 추가</button>
+          </div>
+        </div>
+
+        <!-- [탭 8] 폰트 상세설정 · 야간 눈부심 방지 · 자정 자동 리셋 · 동네 이름 -->
+        <div id="spanel-general" class="hidden space-y-4">
+          <!-- 폰트 상세 설정창 -->
+          <div class="p-3.5 rounded-xl bg-amber-50/70 dark-sub-bg border border-amber-200 space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="font-extrabold text-amber-950">🔤 폰트 상세 설정 (보드 메뉴 제목 / 리스트 내용 분리)</div>
+              <button onclick="resetFontSizes()" class="px-2.5 py-1 rounded-lg bg-white border border-amber-300 text-[11px] font-bold cursor-pointer">기본 크기</button>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div class="p-2.5 rounded-lg bg-white dark-sub-bg border border-stone-200 space-y-1.5">
+                <div class="flex items-center justify-between text-xs font-extrabold">
+                  <span>1. 보드 메뉴 제목 크기</span>
+                  <span id="font-title-val" class="text-indigo-600 tabular-nums">14px</span>
+                </div>
+                <input id="set-font-title" type="range" min="12" max="24" step="1" oninput="updateFontSettings()" class="w-full accent-indigo-600 cursor-pointer" />
+                <div class="flex justify-between text-[10px] text-slate-400"><span>작게 (12px)</span><span>보통 (14px)</span><span>크게 (24px)</span></div>
+              </div>
+              <div class="p-2.5 rounded-lg bg-white dark-sub-bg border border-stone-200 space-y-1.5">
+                <div class="flex items-center justify-between text-xs font-extrabold">
+                  <span>2. 리스트·본문 내용 크기</span>
+                  <span id="font-content-val" class="text-emerald-600 tabular-nums">12px</span>
+                </div>
+                <input id="set-font-content" type="range" min="11" max="22" step="1" oninput="updateFontSettings()" class="w-full accent-emerald-600 cursor-pointer" />
+                <div class="flex justify-between text-[10px] text-slate-400"><span>작게 (11px)</span><span>보통 (12px)</span><span>크게 (22px)</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-stone-50 dark-sub-bg border border-stone-200 space-y-2">
+            <div class="font-extrabold">📍 우리 동네 이름 (상단 날씨 표시용)</div>
+            <div class="flex gap-2">
+              <input id="set-city-name" type="text" class="flex-1 px-3 py-1.5 rounded-lg bg-white dark-sub-bg border border-stone-300 font-bold" />
+              <button onclick="saveCityName()" class="px-4 py-1.5 rounded-lg bg-indigo-600 text-white font-extrabold cursor-pointer">동네 저장</button>
+            </div>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-indigo-50/60 dark-sub-bg border border-indigo-200 space-y-2.5">
+            <label class="flex items-center justify-between cursor-pointer">
+              <span class="font-extrabold">🌙 야간 자동 다크모드 &amp; 눈부심 방지 스케줄러</span>
+              <input id="set-night-enabled" type="checkbox" onchange="saveGeneralToggles()" class="w-4 h-4 accent-indigo-600" />
+            </label>
+            <div class="flex items-center gap-2 text-xs font-bold">
+              <span>시작:</span>
+              <input id="set-night-start" type="time" onchange="saveGeneralToggles()" class="px-2 py-1 rounded bg-white dark-sub-bg border border-stone-300" />
+              <span>~ 종료:</span>
+              <input id="set-night-end" type="time" onchange="saveGeneralToggles()" class="px-2 py-1 rounded bg-white dark-sub-bg border border-stone-300" />
+            </div>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-emerald-50/60 dark-sub-bg border border-emerald-200">
+            <label class="flex items-center justify-between cursor-pointer">
+              <div>
+                <div class="font-extrabold">🔄 자정(00:00) 루틴 &amp; 준비물 자동 초기화</div>
+                <div class="text-[11px] text-slate-500">매일 밤 12시가 지나면 어제 체크한 루틴과 준비물을 자동으로 새 출발 상태로 리셋합니다.</div>
+              </div>
+              <input id="set-midnight-reset" type="checkbox" onchange="saveGeneralToggles()" class="w-4 h-4 accent-emerald-600" />
+            </label>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- 4. 식단 수정 & 급식 사진 촬영/업로드 모달                             -->
+  <!-- ===================================================================== -->
+  <div id="meal-modal" onclick="if(event.target===this) closeModal('meal-modal')" class="fixed inset-0 bg-black/55 hidden items-center justify-center z-50 p-4">
+    <div class="theme-card border rounded-xl p-5 w-full max-w-md shadow-2xl space-y-3">
+      <div class="flex items-center justify-between">
+        <h3 id="meal-modal-title" class="text-sm font-extrabold">식단 수정</h3>
+        <button onclick="closeModal('meal-modal')" class="text-xs font-bold text-slate-400 cursor-pointer">✕</button>
+      </div>
+      <input id="meal-input" type="text" onkeydown="if(event.key==='Enter') saveMeal()" class="w-full px-3 py-2 rounded-lg bg-stone-100 dark-sub-bg border border-stone-300 text-xs" maxlength="80" />
+
+      <div id="lunch-photo-section" class="space-y-2 pt-1 border-t border-stone-200/80 dark-divider">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-extrabold text-emerald-700">📷 급식 안내문 사진 찍기 / 올리기</span>
+          <div class="flex items-center gap-1.5">
+            <label class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold cursor-pointer">
+              카메라 / 앨범
+              <input id="lunch-photo-input" type="file" accept="image/*" capture="environment" onchange="handleLunchPhotoUpload(event)" class="hidden" />
+            </label>
+            <button id="clear-lunch-photo-btn" onclick="clearLunchPhoto()" class="hidden px-2 py-1 rounded-lg bg-rose-100 text-rose-700 text-xs font-bold cursor-pointer">사진삭제</button>
+          </div>
+        </div>
+        <div id="lunch-photo-modal-wrap" class="hidden rounded-xl overflow-hidden border border-stone-200 bg-stone-50">
+          <img id="lunch-photo-modal-img" class="w-full max-h-64 object-contain mx-auto" />
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center pt-1">
+        <button id="open-200-from-meal-btn" onclick="closeModal('meal-modal'); openSettingsModal('meals200');" class="px-3 py-1.5 rounded-lg text-xs font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200 cursor-pointer">🍲 집밥·요리 200선에서 고르기</button>
+        <div class="flex gap-2">
+          <button onclick="closeModal('meal-modal')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-stone-100 dark-btn cursor-pointer">취소</button>
+          <button onclick="saveMeal()" class="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-orange-500 text-white cursor-pointer">저장</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- 5. 7일 주간 날씨 & 미세먼지 상세 팝업 모달                            -->
+  <!-- ===================================================================== -->
+  <div id="weather-modal" onclick="if(event.target===this) closeModal('weather-modal')" class="fixed inset-0 bg-black/55 hidden items-center justify-center z-50 p-4">
+    <div class="theme-card border rounded-2xl p-5 w-full max-w-lg shadow-2xl space-y-3">
+      <div class="flex items-center justify-between">
+        <div>
+          <h3 id="wmodal-title" class="text-sm font-black">인천 논현동 주간 날씨 &amp; 대기질 안내</h3>
+          <p class="text-[11px] text-slate-400">등교·등원 복장 및 마스크·선크림 체크</p>
+        </div>
+        <button onclick="closeModal('weather-modal')" class="px-2.5 py-1 rounded-lg bg-stone-100 dark-btn text-xs font-bold cursor-pointer">닫기 ✕</button>
+      </div>
+      <div id="wmodal-air-detail" class="grid grid-cols-3 gap-2"></div>
+      <div id="wmodal-week-list" class="grid grid-cols-7 gap-1.5 text-center"></div>
+      <div class="flex justify-between items-center pt-2 border-t border-stone-200/80 dark-divider">
+        <span class="text-[11px] text-slate-400">날씨 프리셋 테스트 전환:</span>
+        <button onclick="cycleWeatherPreset()" class="px-3 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-extrabold cursor-pointer">다음 날씨 패턴 보기 🔄</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- 6. 구글 캘린더 1년치 전체 일정 목록 & 해당 월 점프 모달               -->
+  <!-- ===================================================================== -->
+  <div id="gcal-list-modal" onclick="if(event.target===this) closeModal('gcal-list-modal')" class="fixed inset-0 bg-black/55 hidden items-center justify-center z-50 p-4">
+    <div class="theme-card border rounded-2xl p-5 w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl space-y-3">
+      <div class="flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-2">
+          <span class="text-base">📆</span>
+          <div>
+            <h3 class="text-sm font-black">구글 캘린더 연동 일정 전체 내역</h3>
+            <p class="text-[11px] text-slate-400">일정을 클릭하면 달력이 해당 월과 날짜로 바로 이동합니다.</p>
+          </div>
+        </div>
+        <button onclick="closeModal('gcal-list-modal')" class="px-2.5 py-1 rounded-lg bg-stone-100 dark-btn text-xs font-bold cursor-pointer">닫기 ✕</button>
+      </div>
+
+      <!-- 연도 선택 & 검색 필터 -->
+      <div class="flex items-center justify-between gap-2 shrink-0">
+        <div class="flex items-center gap-1 bg-stone-100 dark-sub-bg p-1 rounded-lg">
+          <button onclick="changeGcalModalYear(-1)" class="px-2 py-0.5 rounded bg-white dark-btn text-xs font-bold cursor-pointer">◀</button>
+          <span id="gcal-modal-year-label" class="px-2 text-xs font-black tabular-nums">2026년</span>
+          <button onclick="changeGcalModalYear(1)" class="px-2 py-0.5 rounded bg-white dark-btn text-xs font-bold cursor-pointer">▶</button>
+        </div>
+        <input id="gcal-modal-search" oninput="renderGcalListModal()" type="text" placeholder="일정 제목 검색..." class="flex-1 px-2.5 py-1.5 rounded-lg bg-stone-100 dark-sub-bg border border-stone-300 text-xs" />
+        <span id="gcal-modal-count" class="text-[11px] font-extrabold text-sky-700 shrink-0">0건</span>
+      </div>
+
+      <!-- 1년치 일정 리스트 -->
+      <ul id="gcal-modal-events" class="flex-1 overflow-y-auto thin-scroll space-y-1.5 pr-1 min-h-0"></ul>
+    </div>
+  </div>
+
+  <!-- 토스트 알림 -->
+  <div id="toast-banner" class="fixed bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-slate-900/90 text-white text-xs font-extrabold shadow-lg opacity-0 pointer-events-none transition-opacity duration-200 z-50"></div>
+
+  <!-- ===================================================================== -->
+  <!-- 7. 백업 & 복원 관리 모달 (수동 백업 / 자동 백업 스냅샷 복원)          -->
+  <!-- ===================================================================== -->
+  <div id="backup-modal" onclick="if(event.target===this) closeModal('backup-modal')" class="fixed inset-0 bg-black/55 hidden items-center justify-center z-50 p-4">
+    <div class="theme-card border rounded-2xl p-5 w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl space-y-3">
+      <div class="flex items-center justify-between shrink-0">
+        <div>
+          <h3 class="text-sm font-black">💾 대시보드 백업 &amp; 복원</h3>
+          <p class="text-[11px] text-slate-400">실수로 일정·메모·루틴을 지웠을 때 이전 스냅샷으로 되돌릴 수 있습니다. (15분마다 자동 백업, 최근 10개 보관)</p>
+        </div>
+        <button onclick="closeModal('backup-modal')" class="px-2.5 py-1 rounded-lg bg-stone-100 dark-btn text-xs font-bold cursor-pointer">닫기 ✕</button>
+      </div>
+
+      <div class="flex items-center justify-between gap-2 shrink-0">
+        <span id="backup-status-summary" class="text-[11px] font-bold text-slate-500">저장된 백업 0개</span>
+        <button onclick="createBackupSnapshot('수동 백업')" class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold cursor-pointer">
+          + 지금 백업하기
+        </button>
+      </div>
+
+      <ul id="backup-snapshot-list" class="flex-1 overflow-y-auto thin-scroll space-y-1.5 pr-1 min-h-0"></ul>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'smart_family_board_v4';
+    const SHEET_URL_KEY = 'smart_family_sheet_url_v4';
+    const GCAL_CACHE_KEY = 'smart_family_gcal_cache_v4';
+    const BACKUP_KEY = 'smart_family_backups_v4';
+    const MAX_BACKUPS = 10;
+
+    const WEATHER_PRESETS = [
+      {
+        icon: '🌤️', desc: '맑고 선선', temp: '12°', minmax: '최저 5° / 최고 14° · 강수 10%',
+        outfit: '🧥 얇은 니트 + 가벼운 자켓 추천',
+        pm10: { label: '미세 좋음 (22)', cls: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
+        pm25: { label: '초미세 좋음 (11)', cls: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
+        uv:   { label: '자외선 보통', cls: 'bg-amber-100 text-amber-800 border-amber-200' },
+        tomorrow: { icon: '☀️', temp: '4°/13°' }, dayafter: { icon: '⛅', temp: '6°/15°' },
+        week: [
+          { d: '오늘', i: '🌤️', t: '5°/14°' }, { d: '내일', i: '☀️', t: '4°/13°' }, { d: '모레', i: '⛅', t: '6°/15°' },
+          { d: '월', i: '☀️', t: '3°/12°' }, { d: '화', i: '☀️', t: '4°/13°' }, { d: '수', i: '🌤️', t: '6°/14°' }, { d: '목', i: '🌧️', t: '7°/11°' }
+        ]
+      },
+      {
+        icon: '😷', desc: '미세먼지 나쁨', temp: '10°', minmax: '최저 4° / 최고 12° · 강수 0%',
+        outfit: '😷 아이들 KF80 마스크 꼭 챙기세요!',
+        pm10: { label: '미세 나쁨 (94)', cls: 'bg-rose-100 text-rose-800 border-rose-300' },
+        pm25: { label: '초미세 나쁨 (52)', cls: 'bg-rose-100 text-rose-800 border-rose-300' },
+        uv:   { label: '자외선 낮음', cls: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
+        tomorrow: { icon: '🌧️', temp: '6°/10°' }, dayafter: { icon: '☀️', temp: '2°/11°' },
+        week: [
+          { d: '오늘', i: '😷', t: '4°/12°' }, { d: '내일', i: '🌧️', t: '6°/10°' }, { d: '모레', i: '☀️', t: '2°/11°' },
+          { d: '월', i: '☀️', t: '3°/12°' }, { d: '화', i: '🌤️', t: '5°/14°' }, { d: '수', i: '⛅', t: '6°/13°' }, { d: '목', i: '☀️', t: '4°/13°' }
+        ]
+      },
+      {
+        icon: '🌧️', desc: '오후 비 소식', temp: '9°', minmax: '최저 6° / 최고 11° · 강수 80%',
+        outfit: '☂️ 하린·하니하루 우산 & 방수 신발!',
+        pm10: { label: '미세 좋음 (15)', cls: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
+        pm25: { label: '초미세 좋음 (8)', cls: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
+        uv:   { label: '자외선 낮음', cls: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
+        tomorrow: { icon: '☀️', temp: '3°/12°' }, dayafter: { icon: '☀️', temp: '4°/14°' },
+        week: [
+          { d: '오늘', i: '🌧️', t: '6°/11°' }, { d: '내일', i: '☀️', t: '3°/12°' }, { d: '모레', i: '☀️', t: '4°/14°' },
+          { d: '월', i: '🌤️', t: '5°/15°' }, { d: '화', i: '⛅', t: '6°/13°' }, { d: '수', i: '☀️', t: '4°/12°' }, { d: '목', i: '☀️', t: '5°/14°' }
+        ]
+      }
+    ];
+
+    const HOME_COOK_100 = [
+      '돼지고기 김치찌개', '차돌박이 된장찌개', '순두부찌개', '참치 김치찌개', '부대찌개',
+      '소고기 미역국', '소고기 무국', '콩나물국 & 계란말이', '북엇국', '어묵탕',
+      '감자수제비', '떡만둣국', '닭곰탕', '갈비탕', '육개장',
+      '제육볶음', '간장 돼지불고기', '소불고기', '오징어볶음', '닭갈비',
+      '고등어구이', '삼치구이', '갈치구이', '가자미구이', '임연수구이',
+      '고등어 무조림', '갈치조림', '두부조림', '감자조림 & 멸치볶음', '장조림 & 버터밥',
+      '카레라이스', '하이라이스', '짜장밥', '김치볶음밥', '새우볶음밥',
+      '참치마요 덮밥', '스팸마요 덮밥', '소고기 야채죽', '전복죽', '계란찜 & 김구이',
+      '삼겹살 구이 & 쌈채소', '목살 스테이크', '대패삼겹 숙주볶음', '훈제오리 부추무침', '비엔나 야채볶음',
+      '잡채밥', '콩나물 불고기', '애호박 볶음 & 된장국', '시금치 프리타타', '두부김치',
+      '잔치국수', '비빔국수', '칼국수', '우동', '토마토 스파게티',
+      '크림 파스타', '알리오 올리오', '떡볶이 & 어묵꼬치', '궁중 떡볶이', '김밥 & 유부초밥',
+      '주먹밥 & 미니돈까스', '수제 등심돈까스', '치즈돈까스', '함박스테이크', '치킨너겟 & 감자튀김',
+      '닭봉 간장조림', '찜닭', '닭볶음탕', '백숙 & 닭죽', '삼계탕',
+      '감자채볶음 & 소시지', '가지볶음 덮밥', '버섯불고기 덮밥', '오므라이스', '마파두부 덮밥',
+      '시래기 된장국', '청국장찌개', '동태찌개', '알탕', '버섯전골',
+      '만두전골', '밀푀유나베', '샤브샤브', '수육 보쌈', '족발 & 막국수',
+      '비빔밥 & 약고추장', '콩나물밥 & 달래장', '굴밥 & 양념장', '곤드레나물밥', '낙지볶음 덮밥',
+      '쭈꾸미 볶음', '코다리조림', '꽁치 김치조림', '닭가슴살 샐러드', '또띠아 피자',
+      '에어프라이어 통삼겹', '콘치즈 & 볶음밥', '계란후라이 간장밥', '미역줄기볶음 & 구운김', '감자전 & 부추전'
+    ];
+
+    const CHEF_COOK_100 = [
+      '소갈비찜', '돼지등갈비 바비큐', 'LA갈비 구이', '소꼬리찜', '한우 채끝 스테이크',
+      '연어 스테이크 & 타르타르', '감바스 알 아히요', '봉골레 파스타', '로제 쉬림프 파스타', '트러플 크림 리조또',
+      '해물 빠에야', '라자냐', '비프 스튜', '치킨 마크니 커리 & 난', '팟타이',
+      '월남쌈 & 땅콩소스', '쌀국수 & 분짜', '꿔바로우', '유린기', '깐풍기',
+      '칠리새우', '크림새우', '동파육', '마라샹궈', '고추잡채 & 꽃빵',
+      '양장피', '팔보채', '해물누룽지탕', '멘보샤', '탄탄면',
+      '연어장 덮밥(사케동)', '장어덮밥(우나기동)', '규동(소고기 덮밥)', '가츠동', '텐동(튀김덮밥)',
+      '스키야키', '오코노미야끼', '야끼소바', '타코야끼 & 우동', '밀푀유 돈까스',
+      '해물찜', '아귀찜', '꽃게탕', '간장게장 & 알밥', '전복 버터구이',
+      '가리비 치즈구이', '문어 숙회 & 초장', '바지락 술찜', '홍합 스튜', '대구 지리탕',
+      '낙곱새 전골', '곱창전골', '감자탕', '뼈해장국', '설렁탕 & 수육',
+      '도가니탕', '추어탕', '장어구이', '오리 로스 & 볶음밥', '훈제연어 샐러드',
+      '리코타 치즈 샐러드', '부라타 치즈 카프레제', '프렌치 토스트 브런치', '에그 베네딕트', '클램 차우더 스프',
+      '단호박 크림스프', '어니언 스프', '타코 & 과카몰리', '퀘사디아', '부리또 볼',
+      '수제 햄버거', '필리 치즈스테이크', '풀드포크 버거', '비프 웰링턴', '로스트 치킨',
+      '코코뱅(프랑스식 닭찜)', '뵈프 부르기뇽', '라따뚜이', '뇨끼 크림소스', '해산물 그라탕',
+      '치즈 퐁듀', '랍스터 버터구이', '대게찜 & 게딱지밥', '초밥 & 롤 플래터', '후토마끼',
+      '회덮밥 & 매운탕', '물회 & 소면', '육회 비빔밥', '떡갈비 정식', '불고기 잡채 전골',
+      '궁중 신선로', '구절판', '해파리냉채', '보쌈 & 굴무침', '족발 냉채'
+    ];
+
+    const DEFAULT_TIMETABLE_MATRIX = {
+      1: ['국어', '수학', '사회', '미술', '창체', ''],
+      2: ['수학', '영어', '과학', '체육', '국어', ''],
+      3: ['국어', '도덕', '음악', '실과', '독서', ''],
+      4: ['사회', '수학', '영어', '체육', '국어', ''],
+      5: ['국어', '과학', '미술', '학급회의', '', '']
+    };
+
+    const DAY_TABS = [
+      { day: 1, label: '월' },
+      { day: 2, label: '화' },
+      { day: 3, label: '수' },
+      { day: 4, label: '목' },
+      { day: 5, label: '금' }
+    ];
+
+    const DEFAULT_WEEKLY_DATA = {
+      1: {
+        elemSubjects: ['국어', '수학', '사회', '미술', '창체'],
+        elemSupplies: ['주간학습안내장', '알림장', '필통'],
+        kinderActivity: '숲 체험 산책',
+        kinderSupplies: ['물통', '여벌옷']
+      },
+      2: {
+        elemSubjects: ['수학', '영어', '과학', '체육', '국어'],
+        elemSupplies: ['체육복', '실내화', '물통'],
+        kinderActivity: '영어 놀이 수업',
+        kinderSupplies: ['개인컵', '손수건']
+      },
+      3: {
+        elemSubjects: ['국어', '도덕', '음악', '실과', '독서'],
+        elemSupplies: ['독서록', '실과 재료'],
+        kinderActivity: '쿠킹 클래스',
+        kinderSupplies: ['앞치마', '두건']
+      },
+      4: {
+        elemSubjects: ['사회', '수학', '영어', '체육', '국어'],
+        elemSupplies: ['체육복', '영어 단어장'],
+        kinderActivity: '블록 코딩 놀이',
+        kinderSupplies: ['물통', '알림장']
+      },
+      5: {
+        elemSubjects: ['국어', '과학', '미술', '학급회의'],
+        elemSupplies: ['색연필', '주간학습안내장'],
+        kinderActivity: '도서관 책 대여',
+        kinderSupplies: ['도서관 가방', '지난주 책 반납']
+      }
+    };
+
+    const DEFAULT_WIDGET_LAYOUT = [
+      { id: 'calendar',  title: '📅 달력 & 상세 일정', size: 'L', visible: true },
+      { id: 'school',    title: '🎒 주간 시간표 & 준비물', size: 'MM세로', visible: true },
+      { id: 'routine',   title: '✅ 오늘의 통합 루틴', size: 'L', visible: true },
+      { id: 'memo',      title: '📝 가족 공유 메모', size: 'M', visible: true },
+      { id: 'meal',      title: '🍱 오늘 식단 (급식/저녁)', size: 'M', visible: true },
+      { id: 'ddayboard', title: '⏳ 학사·결제·대여 D-Day', size: 'M', visible: true },
+      { id: 'pickup',    title: '🚐 하교·하원 & 학원 픽업', size: 'Line', visible: true }
+    ];
+
+    const WIDGET_SIZE_OPTIONS = [
+      { value: 'M', label: 'M', title: '기본 크기 (1칸)' },
+      { value: 'MM가로', label: 'MM', title: '오른쪽으로 2배 (가로 확장)' },
+      { value: 'MM세로', label: 'M<br/>M', title: '아래쪽으로 2배 (세로 2칸)' },
+      { value: 'MMM세로', label: 'M<br/>M<br/>M', title: '아래쪽으로 3배 (세로 3칸)' },
+      { value: 'MMMM세로', label: 'M<br/>M<br/>M<br/>M', title: '아래쪽으로 4배 (세로 4칸)' },
+      { value: 'L', label: 'L', title: '오른쪽+아래쪽 2배 (4칸)' },
+      { value: 'Line', label: 'Line', title: '가로 한 줄 전체' }
+    ];
+
+    function normalizeWidgetSize(size) {
+      if (size === '1/4') return 'L';
+      if (size === '1/8') return 'M';
+      if (size === '한줄') return 'Line';
+      if (['M', 'MM가로', 'MM세로', 'MMM세로', 'MMMM세로', 'L', 'Line'].includes(size)) return size;
+      return 'M';
+    }
+
+    function formatDateISO(d) {
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    function createInitialState() {
+      const today = new Date();
+      const addDays = (n) => { const d = new Date(today); d.setDate(today.getDate() + n); return formatDateISO(d); };
+
+      return {
+        theme: 'paper',
+        city: '인천 논현동',
+        weatherIdx: 0,
+        stars: 12,
+        lunchMenu: '현미밥 · 소고기미역국 · 돈육메추리알장조림 · 깍두기',
+        dinnerMenu: '돼지고기 김치찌개 · 계란찜 & 김구이',
+        dinnerMenus: ['돼지고기 김치찌개', '계란찜 & 김구이'],
+        lunchPhotoDataUrl: '',
+        lastModified: 0,
+        lastResetDate: formatDateISO(today),
+        widgetLayout: JSON.parse(JSON.stringify(DEFAULT_WIDGET_LAYOUT)),
+        timetableMatrix: JSON.parse(JSON.stringify(DEFAULT_TIMETABLE_MATRIX)),
+        settings: {
+          titleFontSize: 14,
+          contentFontSize: 12,
+          members: [
+            { name: '가족', color: 'purple' },
+            { name: '하린', color: 'emerald' },
+            { name: '하니하루', color: 'amber' },
+            { name: '엄마아빠', color: 'blue' }
+          ],
+          googleCalendars: [],
+          pickups: [
+            { id: 'p1', time: '14:40', title: '하린 하교 → 태권도 차량', who: '학원차' },
+            { id: 'p2', time: '16:10', title: '하니하루 유치원 하원', who: '엄마' },
+            { id: 'p3', time: '17:00', title: '하린 피아노 학원 픽업', who: '아빠' }
+          ],
+          billings: [
+            { id: 'b1', day: 25, title: '하린 학원비 결제' },
+            { id: 'b2', day: 28, title: '아파트 관리비 자동이체' }
+          ],
+          academics: [
+            { id: 'a1', who: '하린(초등)', date: addDays(28), title: '겨울방학식' },
+            { id: 'a2', who: '하니하루(유치원)', date: addDays(12), title: '유치원 재량휴업일' }
+          ],
+          borroweds: [
+            { id: 'br1', title: '논현도서관 그림책 4권', from: '논현도서관', due: addDays(4) }
+          ],
+          nightModeEnabled: true,
+          nightStart: '22:00',
+          nightEnd: '06:30',
+          midnightAutoReset: true
+        },
+        weeklyData: JSON.parse(JSON.stringify(DEFAULT_WEEKLY_DATA)),
+        checkedSupplies: {},
+        events: [
+          { id: 'ev1', member: '하린', title: '학교 독서 골든벨', date: formatDateISO(today), time: '10:30' },
+          { id: 'ev2', member: '가족', title: '소래포구 가족 저녁 외식', date: addDays(2), time: '18:30' }
+        ],
+        routines: [
+          { id: 'rt1', member: '하린', time: '08:10', text: '이불 정리 & 등교 가방 메기', done: true },
+          { id: 'rt2', member: '하니하루', time: '08:30', text: '스스로 양치하고 유치원 옷 입기', done: false },
+          { id: 'rt3', member: '하린', time: '16:30', text: '학교 알림장 확인 & 수학 숙제', done: false },
+          { id: 'rt4', member: '가족', time: '20:30', text: '내일 옷 & 가방 현관에 미리 챙기기', done: false }
+        ],
+        memos: [
+          { id: 'm1', text: '마트에서 우유, 계란, 하니하루 딸기 사오기', done: false },
+          { id: 'm2', text: '하린 태권도 도복 세탁기 돌리기', done: false },
+          { id: 'm3', text: '주말 나들이 돗자리 트렁크에 싣기', done: true }
+        ]
+      };
+    }
+
+    // URL 파라미터(?sheet=...) 자동 등록 처리
+    (function bootstrapSheetUrlFromQuery() {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const sheetParam = params.get('sheet');
+        if (sheetParam && sheetParam.startsWith('http')) {
+          localStorage.setItem(SHEET_URL_KEY, sheetParam.trim());
+        }
+      } catch (e) {}
+    })();
+
+    let googleSheetUrl = localStorage.getItem(SHEET_URL_KEY) || '';
+    let gcalEvents = JSON.parse(localStorage.getItem(GCAL_CACHE_KEY) || '[]');
+    let appState = JSON.parse(localStorage.getItem(STORAGE_KEY)) || createInitialState();
+    if (!appState.settings) appState.settings = createInitialState().settings;
+    if (!appState.settings.titleFontSize) appState.settings.titleFontSize = 14;
+    if (!appState.settings.contentFontSize) appState.settings.contentFontSize = 12;
+    if (!Array.isArray(appState.dinnerMenus)) {
+      appState.dinnerMenus = appState.dinnerMenu ? appState.dinnerMenu.split('·').map(s => s.trim()).filter(Boolean) : [];
+    }
+    if (!appState.settings.academics) appState.settings.academics = createInitialState().settings.academics;
+    if (!appState.settings.borroweds) appState.settings.borroweds = createInitialState().settings.borroweds;
+    if (!appState.timetableMatrix) appState.timetableMatrix = JSON.parse(JSON.stringify(DEFAULT_TIMETABLE_MATRIX));
+    if (!appState.widgetLayout || !Array.isArray(appState.widgetLayout)) {
+      appState.widgetLayout = JSON.parse(JSON.stringify(DEFAULT_WIDGET_LAYOUT));
+    } else {
+      appState.widgetLayout.forEach(w => { w.size = normalizeWidgetSize(w.size); });
+    }
+
+    const nowInit = new Date();
+    let viewYear = nowInit.getFullYear();
+    let viewMonth = nowInit.getMonth();
+    let selectedDateStr = formatDateISO(nowInit);
+    let selectedWeekday = (nowInit.getDay() >= 1 && nowInit.getDay() <= 5) ? nowInit.getDay() : 1;
+    let settingsSchoolDay = selectedWeekday;
+    let currentMealEditType = 'lunch';
+    let mealCatalogMode = 'home';
+    let isQuickLayoutEditing = false;
+
+    function escapeHtml(str) {
+      return String(str || '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+    }
+
+    function showToast(msg) {
+      const el = document.getElementById('toast-banner');
+      if (!el) return;
+      el.textContent = msg;
+      el.style.opacity = '1';
+      clearTimeout(window.__toastTimer);
+      window.__toastTimer = setTimeout(() => { el.style.opacity = '0'; }, 2400);
+    }
+
+    function saveState(skipCloud) {
+      appState.lastModified = Date.now();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+      if (!skipCloud && googleSheetUrl) {
+        pushToGoogleSheet();
+      }
+    }
+
+    /* 자동 백업 & 수동 백업 스냅샷 관리 */
+    function getBackupList() {
+      try {
+        const list = JSON.parse(localStorage.getItem(BACKUP_KEY) || '[]');
+        return Array.isArray(list) ? list : [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function saveBackupList(list) {
+      localStorage.setItem(BACKUP_KEY, JSON.stringify(list.slice(0, MAX_BACKUPS)));
+    }
+
+    function createBackupSnapshot(reason = '자동 백업', silent = false) {
+      try {
+        const now = new Date();
+        const label = `${now.getMonth() + 1}/${now.getDate()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+        const snapshot = {
+          id: 'bk-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+          createdAt: now.toISOString(),
+          label,
+          reason,
+          summary: `일정 ${(appState.events || []).length}건 · 루틴 ${(appState.routines || []).length}개 · 메모 ${(appState.memos || []).length}개`,
+          data: JSON.parse(JSON.stringify(appState))
+        };
+        const currentList = getBackupList();
+        const nextList = [snapshot, ...currentList].slice(0, MAX_BACKUPS);
+        saveBackupList(nextList);
+        if (!silent) {
+          renderBackupModal();
+          showToast(`💾 ${reason} 완료! (${label})`);
+        }
+      } catch (e) {
+        if (!silent) showToast('백업 저장 중 오류가 발생했어.');
+      }
+    }
+
+    function openBackupModal() {
+      renderBackupModal();
+      openModal('backup-modal');
+    }
+
+    function renderBackupModal() {
+      const listEl = document.getElementById('backup-snapshot-list');
+      const sumEl = document.getElementById('backup-status-summary');
+      if (!listEl) return;
+      const list = getBackupList();
+      if (sumEl) sumEl.textContent = `저장된 백업 ${list.length} / ${MAX_BACKUPS}개`;
+
+      if (list.length === 0) {
+        listEl.innerHTML = `<li class="text-xs text-slate-400 text-center py-8">아직 저장된 백업이 없어. [지금 백업하기]를 눌러봐!</li>`;
+        return;
+      }
+
+      listEl.innerHTML = list.map((bk, idx) => `
+        <li class="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-stone-50 dark-sub-bg border border-stone-200/80">
+          <div class="min-w-0">
+            <div class="flex items-center gap-1.5">
+              <span class="px-1.5 py-0.5 rounded text-[10px] font-black ${
+                bk.reason === '수동 백업' ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-100 text-indigo-800'
+              }">${escapeHtml(bk.reason)}</span>
+              <span class="text-xs font-extrabold tabular-nums">${escapeHtml(bk.label)}</span>
+              ${idx === 0 ? '<span class="text-[10px] font-bold text-slate-400">(최신)</span>' : ''}
+            </div>
+            <div class="text-[11px] text-slate-500 mt-0.5 truncate">${escapeHtml(bk.summary || '')}</div>
+          </div>
+          <div class="flex items-center gap-1 shrink-0">
+            <button onclick="restoreBackupSnapshot('${bk.id}')" class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-extrabold cursor-pointer">복원</button>
+            <button onclick="deleteBackupSnapshot('${bk.id}')" class="px-2 py-1 rounded-lg bg-stone-200/80 hover:bg-rose-100 hover:text-rose-700 text-[11px] font-bold cursor-pointer">삭제</button>
+          </div>
+        </li>
+      `).join('');
+    }
+
+    function restoreBackupSnapshot(id) {
+      const list = getBackupList();
+      const target = list.find(b => b.id === id);
+      if (!target || !target.data) return;
+      createBackupSnapshot('복원 전 안전백업', true);
+      appState = Object.assign(createInitialState(), JSON.parse(JSON.stringify(target.data)));
+      if (!Array.isArray(appState.dinnerMenus)) {
+        appState.dinnerMenus = appState.dinnerMenu ? appState.dinnerMenu.split('·').map(s => s.trim()).filter(Boolean) : [];
+      }
+      saveState();
+      renderAll();
+      renderBackupModal();
+      showToast(`♻️ ${target.label} 백업으로 복원했어!`);
+    }
+
+    function deleteBackupSnapshot(id) {
+      const nextList = getBackupList().filter(b => b.id !== id);
+      saveBackupList(nextList);
+      renderBackupModal();
+    }
+
+    function checkMidnightAutoReset() {
+      if (!appState.settings?.midnightAutoReset) return;
+      const todayStr = formatDateISO(new Date());
+      if (appState.lastResetDate && appState.lastResetDate !== todayStr) {
+        createBackupSnapshot('자정 리셋 전 자동백업', true);
+        appState.routines = (appState.routines || []).map(r => Object.assign({}, r, { done: false }));
+        appState.checkedSupplies = {};
+        appState.lastResetDate = todayStr;
+        saveState();
+      } else if (!appState.lastResetDate) {
+        appState.lastResetDate = todayStr;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+      }
+    }
+
+    function applyNightSchedule() {
+      const dimmer = document.getElementById('night-dimmer-overlay');
+      if (!dimmer) return;
+      if (!appState.settings?.nightModeEnabled) {
+        dimmer.style.opacity = '0';
+        return;
+      }
+      const now = new Date();
+      const curMin = now.getHours() * 60 + now.getMinutes();
+      const [sh, sm] = (appState.settings.nightStart || '22:00').split(':').map(Number);
+      const [eh, em] = (appState.settings.nightEnd || '06:30').split(':').map(Number);
+      const startMin = sh * 60 + sm;
+      const endMin = eh * 60 + em;
+      const isNight = startMin > endMin
+        ? (curMin >= startMin || curMin < endMin)
+        : (curMin >= startMin && curMin < endMin);
+      dimmer.style.opacity = isNight ? '0.28' : '0';
+    }
+
+    /* 폰트 상세 크기 적용 */
+    function applyFontSettings() {
+      const tSize = Number(appState.settings?.titleFontSize) || 14;
+      const cSize = Number(appState.settings?.contentFontSize) || 12;
+      document.documentElement.style.setProperty('--board-title-size', `${tSize}px`);
+      document.documentElement.style.setProperty('--board-content-size', `${cSize}px`);
+    }
+
+    function updateFontSettings() {
+      const tVal = Number(document.getElementById('set-font-title').value) || 14;
+      const cVal = Number(document.getElementById('set-font-content').value) || 12;
+      appState.settings.titleFontSize = tVal;
+      appState.settings.contentFontSize = cVal;
+      document.getElementById('font-title-val').textContent = `${tVal}px`;
+      document.getElementById('font-content-val').textContent = `${cVal}px`;
+      applyFontSettings();
+      saveState();
+    }
+
+    function resetFontSizes() {
+      appState.settings.titleFontSize = 14;
+      appState.settings.contentFontSize = 12;
+      document.getElementById('set-font-title').value = 14;
+      document.getElementById('set-font-content').value = 12;
+      updateFontSettings();
+      showToast('폰트 크기를 기본값(14px / 12px)으로 되돌렸어.');
+    }
+
+    /* 테마 적용 */
+    function setTheme(theme) {
+      appState.theme = theme;
+      document.body.className = `theme-${theme} transition-colors duration-300 select-none`;
+      saveState();
+    }
+
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    }
+
+    /* 시계 업데이트 */
+    function updateClock() {
+      const now = new Date();
+      const h = now.getHours();
+      const m = now.getMinutes();
+      const s = now.getSeconds();
+      const ampm = h >= 12 ? '오후' : '오전';
+      const h12 = h % 12 || 12;
+      const daysKo = ['일', '월', '화', '수', '목', '금', '토'];
+      const dateText = `${now.getFullYear()}년 ${now.getMonth() + 1}월 ${now.getDate()}일 (${daysKo[now.getDay()]})`;
+
+      const elAmpm = document.getElementById('clock-ampm');
+      const elTime = document.getElementById('clock-time');
+      const elSec = document.getElementById('clock-sec');
+      const elDate = document.getElementById('clock-date');
+      const elMobDate = document.getElementById('mob-header-date');
+
+      if (elAmpm) elAmpm.textContent = ampm;
+      if (elTime) elTime.textContent = `${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+      if (elSec) elSec.textContent = String(s).padStart(2, '0');
+      if (elDate) elDate.textContent = dateText;
+      if (elMobDate) elMobDate.textContent = dateText;
+    }
+
+    /* 날씨 & 미세먼지/자외선 렌더링 */
+    function renderWeather() {
+      const w = WEATHER_PRESETS[appState.weatherIdx % WEATHER_PRESETS.length];
+      document.getElementById('header-city-label').textContent = `📍 ${appState.city || '인천 논현동'}`;
+      document.getElementById('weather-icon').textContent = w.icon;
+      document.getElementById('weather-temp').textContent = w.temp;
+      document.getElementById('weather-desc').textContent = w.desc;
+      document.getElementById('weather-minmax').textContent = w.minmax;
+      document.getElementById('weather-outfit-tip').textContent = w.outfit;
+
+      const b10 = document.getElementById('badge-pm10');
+      const b25 = document.getElementById('badge-pm25');
+      const buv = document.getElementById('badge-uv');
+      b10.textContent = w.pm10.label; b10.className = `px-2 py-0.5 rounded-md text-[10px] font-extrabold border ${w.pm10.cls}`;
+      b25.textContent = w.pm25.label; b25.className = `px-2 py-0.5 rounded-md text-[10px] font-extrabold border ${w.pm25.cls}`;
+      buv.textContent = w.uv.label;   buv.className = `px-2 py-0.5 rounded-md text-[10px] font-extrabold border ${w.uv.cls}`;
+
+      document.getElementById('tomorrow-icon').textContent = w.tomorrow.icon;
+      document.getElementById('tomorrow-temp').textContent = w.tomorrow.temp;
+      document.getElementById('dayafter-icon').textContent = w.dayafter.icon;
+      document.getElementById('dayafter-temp').textContent = w.dayafter.temp;
+    }
+
+    function openWeatherModal() {
+      const w = WEATHER_PRESETS[appState.weatherIdx % WEATHER_PRESETS.length];
+      document.getElementById('wmodal-title').textContent = `${appState.city || '인천 논현동'} 주간 날씨 & 대기질 안내`;
+      document.getElementById('wmodal-air-detail').innerHTML = `
+        <div class="p-2.5 rounded-xl border text-center font-extrabold ${w.pm10.cls}">${w.pm10.label}</div>
+        <div class="p-2.5 rounded-xl border text-center font-extrabold ${w.pm25.cls}">${w.pm25.label}</div>
+        <div class="p-2.5 rounded-xl border text-center font-extrabold ${w.uv.cls}">${w.uv.label}</div>
+      `;
+      document.getElementById('wmodal-week-list').innerHTML = w.week.map(item => `
+        <div class="p-2 rounded-xl bg-stone-50 dark-sub-bg border border-stone-200/80">
+          <div class="text-[11px] font-extrabold text-slate-500">${item.d}</div>
+          <div class="text-xl my-1">${item.i}</div>
+          <div class="text-[11px] font-black tabular-nums">${item.t}</div>
+        </div>
+      `).join('');
+      openModal('weather-modal');
+    }
+
+    function cycleWeatherPreset() {
+      appState.weatherIdx = ((appState.weatherIdx || 0) + 1) % WEATHER_PRESETS.length;
+      saveState();
+      renderWeather();
+      openWeatherModal();
+    }
+
+    /* 위젯 배치 & 크기(M, MM가로, MM세로, L, Line) & 숨김 적용 */
+    function applyWidgetLayout() {
+      const mainArea = document.getElementById('kiosk-main-area');
+      const lineArea = document.getElementById('kiosk-line-area');
+      if (!mainArea || !lineArea) return;
+
+      DEFAULT_WIDGET_LAYOUT.forEach(def => {
+        if (!appState.widgetLayout.some(w => w.id === def.id)) {
+          appState.widgetLayout.push(JSON.parse(JSON.stringify(def)));
+        }
+      });
+
+      appState.widgetLayout.forEach((cfg, idx) => {
+        cfg.size = normalizeWidgetSize(cfg.size);
+        const el = document.getElementById(`widget-${cfg.id}`);
+        if (!el) return;
+        const targetContainer = cfg.size === 'Line' ? lineArea : mainArea;
+        targetContainer.appendChild(el);
+        el.classList.remove('w-size-m', 'w-size-mm-h', 'w-size-mm-v', 'w-size-mmm-v', 'w-size-mmmm-v', 'w-size-l', 'w-size-line', 'w-narrow', 'hidden', 'opacity-40');
+
+        if (cfg.size === 'MM가로') {
+          el.classList.add('w-size-mm-h');
+        } else if (cfg.size === 'MM세로') {
+          el.classList.add('w-size-mm-v', 'w-narrow');
+        } else if (cfg.size === 'MMM세로') {
+          el.classList.add('w-size-mmm-v', 'w-narrow');
+        } else if (cfg.size === 'MMMM세로') {
+          el.classList.add('w-size-mmmm-v', 'w-narrow');
+        } else if (cfg.size === 'L') {
+          el.classList.add('w-size-l');
+        } else if (cfg.size === 'Line') {
+          el.classList.add('w-size-line');
+        } else {
+          el.classList.add('w-size-m', 'w-narrow');
+        }
+
+        if (!cfg.visible && !isQuickLayoutEditing) {
+          el.classList.add('hidden');
+        } else if (!cfg.visible && isQuickLayoutEditing) {
+          el.classList.add('opacity-40');
+        }
+
+        const editBar = el.querySelector('.widget-edit-bar');
+        if (editBar) {
+          if (isQuickLayoutEditing) {
+            editBar.classList.remove('hidden');
+            editBar.classList.add('flex');
+            editBar.innerHTML = `
+              <div class="flex items-center gap-0.5 shrink-0">
+                <button onclick="moveWidgetOrder(${idx}, -1)" class="px-1.5 py-0.5 rounded bg-white border border-amber-300 cursor-pointer" title="앞으로 이동">◀</button>
+                <button onclick="moveWidgetOrder(${idx}, 1)" class="px-1.5 py-0.5 rounded bg-white border border-amber-300 cursor-pointer" title="뒤로 이동">▶</button>
+              </div>
+              <div class="flex flex-wrap items-center justify-end gap-0.5">
+                ${WIDGET_SIZE_OPTIONS.map(opt => `
+                  <button onclick="changeWidgetSize(${idx}, '${opt.value}')" title="${opt.title}" class="px-1.5 py-0.5 rounded text-[10px] leading-[1.05] font-black inline-flex items-center justify-center text-center cursor-pointer ${
+                    cfg.size === opt.value ? 'bg-indigo-600 text-white' : 'bg-white border border-amber-300'
+                  }">${opt.label}</button>
+                `).join('')}
+                <button onclick="toggleWidgetVisible(${idx})" class="px-1.5 py-0.5 rounded text-[10px] cursor-pointer ${
+                  cfg.visible ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
+                }">${cfg.visible ? '표시' : '숨김'}</button>
+              </div>
+            `;
+          } else {
+            editBar.classList.add('hidden');
+            editBar.classList.remove('flex');
+          }
+        }
+      });
+    }
+
+    function toggleQuickLayoutEdit() {
+      isQuickLayoutEditing = !isQuickLayoutEditing;
+      const btn = document.getElementById('quick-layout-btn');
+      if (btn) {
+        btn.textContent = isQuickLayoutEditing ? '✅ 배치완료' : '🎛️ 화면배치';
+        btn.className = isQuickLayoutEditing
+          ? 'px-2.5 py-1.5 rounded-lg text-xs font-extrabold bg-emerald-600 text-white shadow-2xs transition cursor-pointer'
+          : 'px-2.5 py-1.5 rounded-lg text-xs font-extrabold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 transition cursor-pointer';
+      }
+      if (!isQuickLayoutEditing) {
+        saveState();
+        showToast('화면 배치가 자동 저장됐어!');
+      }
+      applyWidgetLayout();
+    }
+
+    function moveWidgetOrder(idx, dir) {
+      const target = idx + dir;
+      if (target < 0 || target >= appState.widgetLayout.length) return;
+      const arr = appState.widgetLayout;
+      [arr[idx], arr[target]] = [arr[target], arr[idx]];
+      saveState();
+      applyWidgetLayout();
+      if (!document.getElementById('settings-modal').classList.contains('hidden')) renderSettingsContent();
+      showToast('위젯 순서가 자동 저장됐어.');
+    }
+
+    function changeWidgetSize(idx, size) {
+      appState.widgetLayout[idx].size = size;
+      saveState();
+      applyWidgetLayout();
+      if (!document.getElementById('settings-modal').classList.contains('hidden')) renderSettingsContent();
+      showToast(`위젯 크기가 [${size}]로 자동 저장됐어.`);
+    }
+
+    function toggleWidgetVisible(idx) {
+      appState.widgetLayout[idx].visible = !appState.widgetLayout[idx].visible;
+      saveState();
+      applyWidgetLayout();
+      if (!document.getElementById('settings-modal').classList.contains('hidden')) renderSettingsContent();
+      showToast('위젯 표시 상태가 자동 저장됐어.');
+    }
+
+    function resetWidgetLayout() {
+      appState.widgetLayout = JSON.parse(JSON.stringify(DEFAULT_WIDGET_LAYOUT));
+      saveState();
+      applyWidgetLayout();
+      renderSettingsContent();
+      showToast('화면 배치를 기본값으로 초기화했어.');
+    }
+
+    /* 구성원 배지 스타일 & 셀렉트 옵션 */
+    function getMemberBadgeClass(memberName) {
+      const found = (appState.settings.members || []).find(m => m.name === memberName);
+      const color = found ? found.color : 'purple';
+      const map = {
+        emerald: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+        amber: 'bg-amber-100 text-amber-800 border-amber-200',
+        blue: 'bg-blue-100 text-blue-800 border-blue-200',
+        purple: 'bg-purple-100 text-purple-800 border-purple-200',
+        rose: 'bg-rose-100 text-rose-800 border-rose-200'
+      };
+      return map[color] || map.purple;
+    }
+
+    function populateMemberSelects() {
+      const members = appState.settings.members || [{ name: '가족', color: 'purple' }];
+      const opts = members.map(m => `<option value="${escapeHtml(m.name)}">${escapeHtml(m.name)}</option>`).join('');
+      ['event-member-select', 'routine-member-select', 'mob-ev-member', 'mob-rt-member', 'new-gcal-member'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = opts;
+      });
+    }
+
+    /* 달력 & 상세 일정 (날짜 칸은 점 표시만) */
+    function getMergedEvents() {
+      return [...(appState.events || []), ...(gcalEvents || [])];
+    }
+
+    function changeMonth(delta) {
+      viewMonth += delta;
+      if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+      else if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+      renderCalendar();
+    }
+
+    function goToday() {
+      const now = new Date();
+      viewYear = now.getFullYear();
+      viewMonth = now.getMonth();
+      selectedDateStr = formatDateISO(now);
+      renderCalendar();
+    }
+
+    function selectCalDate(dateStr) {
+      selectedDateStr = dateStr;
+      renderCalendar();
+    }
+
+    let gcalModalYear = nowInit.getFullYear();
+
+    function openGcalListModal() {
+      gcalModalYear = viewYear;
+      const searchInp = document.getElementById('gcal-modal-search');
+      if (searchInp) searchInp.value = '';
+      renderGcalListModal();
+      openModal('gcal-list-modal');
+    }
+
+    function changeGcalModalYear(delta) {
+      gcalModalYear += delta;
+      renderGcalListModal();
+    }
+
+    function renderGcalListModal() {
+      const yearLabel = document.getElementById('gcal-modal-year-label');
+      const countLabel = document.getElementById('gcal-modal-count');
+      const listEl = document.getElementById('gcal-modal-events');
+      if (!listEl) return;
+
+      yearLabel.textContent = `${gcalModalYear}년`;
+      const keyword = (document.getElementById('gcal-modal-search')?.value || '').trim().toLowerCase();
+      const yearPrefix = `${gcalModalYear}-`;
+      const todayStr = formatDateISO(new Date());
+
+      const sourceEvents = (gcalEvents && gcalEvents.length > 0) ? gcalEvents : getMergedEvents();
+      const filtered = sourceEvents
+        .filter(ev => ev.date && ev.date.startsWith(yearPrefix))
+        .filter(ev => !keyword || (ev.title || '').toLowerCase().includes(keyword))
+        .sort((a, b) => a.date.localeCompare(b.date) || (a.time || '').localeCompare(b.time || ''));
+
+      countLabel.textContent = `${filtered.length}건`;
+
+      if (filtered.length === 0) {
+        listEl.innerHTML = `<li class="text-xs text-slate-400 text-center py-8">${gcalModalYear}년에 등록된 일정이 없어. (◀ ▶ 버튼으로 연도를 바꾸거나 시트 연동을 확인해 봐!)</li>`;
+        return;
+      }
+
+      const daysKo = ['일', '월', '화', '수', '목', '금', '토'];
+      listEl.innerHTML = filtered.map(ev => {
+        const dObj = new Date(ev.date + 'T00:00:00');
+        const dow = daysKo[dObj.getDay()];
+        const isPast = ev.date < todayStr;
+        const isToday = ev.date === todayStr;
+        return `
+          <li>
+            <button onclick="jumpToGcalDate('${ev.date}')" class="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl border text-left transition cursor-pointer ${
+              isToday
+                ? 'bg-indigo-50 border-indigo-400'
+                : isPast
+                  ? 'bg-stone-50/60 dark-sub-bg border-stone-200/70 opacity-65 hover:opacity-100'
+                  : 'bg-white dark-sub-bg border-stone-200 hover:border-sky-400 hover:bg-sky-50/40'
+            }">
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="px-2 py-0.5 rounded-md text-[11px] font-black tabular-nums shrink-0 ${
+                  isToday ? 'bg-indigo-600 text-white' : 'bg-sky-100 text-sky-800'
+                }">${ev.date.slice(5)} (${dow})</span>
+                <span class="px-1.5 py-0.5 rounded text-[10px] font-extrabold border shrink-0 ${getMemberBadgeClass(ev.member)}">${escapeHtml(ev.member)}</span>
+                <span class="text-xs font-extrabold truncate">${escapeHtml(ev.title)}</span>
+              </div>
+              <div class="flex items-center gap-1.5 shrink-0">
+                <span class="text-[11px] font-bold text-slate-400 tabular-nums">${escapeHtml(ev.time || '')}</span>
+                <span class="text-xs font-black text-sky-600">이동 →</span>
+              </div>
+            </button>
+          </li>
+        `;
+      }).join('');
+    }
+
+    function jumpToGcalDate(dateStr) {
+      if (!dateStr) return;
+      const [y, m] = dateStr.split('-').map(Number);
+      viewYear = y;
+      viewMonth = m - 1;
+      selectedDateStr = dateStr;
+      closeModal('gcal-list-modal');
+      renderCalendar();
+      showToast(`📅 ${y}년 ${m}월 ${Number(dateStr.slice(8))}일로 이동했어!`);
+    }
+
+    function renderCalendar() {
+      document.getElementById('cal-month-title').textContent = `${viewYear}년 ${viewMonth + 1}월`;
+      const gcalBadge = document.getElementById('gcal-jump-badge');
+      if (gcalBadge) {
+        gcalBadge.textContent = (gcalEvents && gcalEvents.length > 0)
+          ? `📆 연동 ${gcalEvents.length}건`
+          : `📆 전체일정`;
+      }
+      const grid = document.getElementById('calendar-grid');
+      const firstDay = new Date(viewYear, viewMonth, 1).getDay();
+      const lastDate = new Date(viewYear, viewMonth + 1, 0).getDate();
+      const prevLastDate = new Date(viewYear, viewMonth, 0).getDate();
+      const todayStr = formatDateISO(new Date());
+      const allEvents = getMergedEvents();
+
+      let cells = '';
+      for (let i = 0; i < 42; i++) {
+        let dNum, dStr, isCurrentMonth = true;
+        if (i < firstDay) {
+          dNum = prevLastDate - firstDay + i + 1;
+          const pm = viewMonth === 0 ? 11 : viewMonth - 1;
+          const py = viewMonth === 0 ? viewYear - 1 : viewYear;
+          dStr = `${py}-${String(pm + 1).padStart(2, '0')}-${String(dNum).padStart(2, '0')}`;
+          isCurrentMonth = false;
+        } else if (i >= firstDay + lastDate) {
+          dNum = i - (firstDay + lastDate) + 1;
+          const nm = viewMonth === 11 ? 0 : viewMonth + 1;
+          const ny = viewMonth === 11 ? viewYear + 1 : viewYear;
+          dStr = `${ny}-${String(nm + 1).padStart(2, '0')}-${String(dNum).padStart(2, '0')}`;
+          isCurrentMonth = false;
+        } else {
+          dNum = i - firstDay + 1;
+          dStr = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(dNum).padStart(2, '0')}`;
+        }
+
+        const dayEvs = allEvents.filter(e => e.date === dStr);
+        const isToday = dStr === todayStr;
+        const isSelected = dStr === selectedDateStr;
+        const dow = i % 7;
+        const numColor = !isCurrentMonth ? 'text-slate-300' : dow === 0 ? 'text-rose-500' : dow === 6 ? 'text-blue-500' : '';
+
+        cells += `
+          <button onclick="selectCalDate('${dStr}')" class="rounded-lg p-1 flex flex-col items-center justify-between border transition cursor-pointer overflow-hidden ${
+            isSelected ? 'border-indigo-500 bg-indigo-50/70 dark-sub-bg' : 'border-stone-200/60 hover:border-indigo-300'
+          }">
+            <span class="text-[11px] font-extrabold tabular-nums px-1.5 rounded ${isToday ? 'bg-indigo-600 text-white' : numColor}">${dNum}</span>
+            <div class="flex items-center justify-center gap-0.5 h-2">
+              ${dayEvs.slice(0, 4).map(ev => `<span class="w-1.5 h-1.5 rounded-full ${ev.isGCal ? 'bg-sky-500' : 'bg-indigo-500'}"></span>`).join('')}
+            </div>
+          </button>
+        `;
+      }
+      grid.innerHTML = cells;
+
+      const selEvs = allEvents.filter(e => e.date === selectedDateStr).sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+      document.getElementById('selected-date-label').textContent = selectedDateStr === todayStr ? `오늘 (${selectedDateStr.slice(5)})` : selectedDateStr;
+      document.getElementById('selected-date-count').textContent = `${selEvs.length}건`;
+      document.getElementById('selected-day-events').innerHTML = selEvs.length === 0
+        ? `<li class="board-content-text text-slate-400 text-center py-4">등록된 일정이 없어.</li>`
+        : selEvs.map(ev => `
+          <li class="flex items-center justify-between gap-1 px-2 py-1 rounded bg-white dark-sub-bg border border-stone-200/80 board-content-text">
+            <div class="flex items-center gap-1 min-w-0">
+              <span class="px-1.5 py-0.2 rounded text-[10px] font-extrabold border shrink-0 ${getMemberBadgeClass(ev.member)}">${escapeHtml(ev.member)}</span>
+              <span class="text-[10px] font-bold text-slate-400 tabular-nums shrink-0">${escapeHtml(ev.time || '')}</span>
+              <span class="font-bold truncate">${ev.isGCal ? '📆 ' : ''}${escapeHtml(ev.title)}</span>
+            </div>
+            ${ev.isGCal ? '' : `<button onclick="deleteEvent('${ev.id}')" class="text-[10px] text-rose-400 hover:text-rose-600 font-bold cursor-pointer shrink-0">✕</button>`}
+          </li>
+        `).join('');
+
+      const mobUpcoming = document.getElementById('mob-upcoming-events');
+      if (mobUpcoming) {
+        const upcoming = allEvents.filter(e => e.date >= todayStr).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 12);
+        mobUpcoming.innerHTML = upcoming.map(ev => `
+          <li class="flex items-center justify-between px-3 py-2 rounded-xl bg-stone-50 border border-stone-200 text-xs">
+            <div class="flex items-center gap-1.5 min-w-0">
+              <span class="px-1.5 py-0.5 rounded text-[10px] font-extrabold border ${getMemberBadgeClass(ev.member)}">${escapeHtml(ev.member)}</span>
+              <span class="font-bold text-slate-500 tabular-nums">${ev.date.slice(5)} ${ev.time || ''}</span>
+              <span class="font-extrabold truncate">${escapeHtml(ev.title)}</span>
+            </div>
+            ${ev.isGCal ? '' : `<button onclick="deleteEvent('${ev.id}')" class="text-rose-500 font-bold ml-2">삭제</button>`}
+          </li>
+        `).join('');
+      }
+    }
+
+    function addEventFromDesktop(e) {
+      e.preventDefault();
+      const member = document.getElementById('event-member-select').value;
+      const time = document.getElementById('event-time-input').value;
+      const inp = document.getElementById('event-title-input');
+      const title = inp.value.trim();
+      if (!title) return;
+      appState.events.push({ id: 'ev-' + Date.now(), member, title, date: selectedDateStr, time });
+      inp.value = '';
+      saveState();
+      renderCalendar();
+    }
+
+    function addEventMobile(e) {
+      e.preventDefault();
+      const member = document.getElementById('mob-ev-member').value;
+      const date = document.getElementById('mob-ev-date').value || formatDateISO(new Date());
+      const time = document.getElementById('mob-ev-time').value;
+      const inp = document.getElementById('mob-ev-title');
+      const title = inp.value.trim();
+      if (!title) return;
+      appState.events.push({ id: 'ev-' + Date.now(), member, title, date, time });
+      inp.value = '';
+      saveState();
+      renderCalendar();
+      showToast('새 일정을 등록했어!');
+    }
+
+    function deleteEvent(id) {
+      appState.events = appState.events.filter(e => e.id !== id);
+      saveState();
+      renderCalendar();
+    }
+
+    /* 학사일정 · 공과금 · 빌려온 물건 D-Day 통합 계산 & 렌더링 */
+    function getAllDDayItems() {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const y = today.getFullYear();
+      const m = today.getMonth();
+      const items = [];
+
+      (appState.settings.academics || []).forEach(a => {
+        if (!a.date) return;
+        const target = new Date(a.date + 'T00:00:00');
+        const diff = Math.round((target - today) / (1000 * 60 * 60 * 24));
+        if (diff >= -1) {
+          items.push({
+            category: '학사', icon: '🏫',
+            badgeCls: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+            title: `[${a.who}] ${a.title}`,
+            diff
+          });
+        }
+      });
+
+      (appState.settings.borroweds || []).forEach(br => {
+        if (!br.due) return;
+        const target = new Date(br.due + 'T00:00:00');
+        const diff = Math.round((target - today) / (1000 * 60 * 60 * 24));
+        items.push({
+          category: '대여', icon: '📚',
+          badgeCls: 'bg-sky-100 text-sky-800 border-sky-200',
+          title: `${br.title} (${br.from || '대여'})`,
+          diff
+        });
+      });
+
+      (appState.settings.billings || []).forEach(b => {
+        const lastDayThisMonth = new Date(y, m + 1, 0).getDate();
+        let targetDate = new Date(y, m, Math.min(Number(b.day) || 1, lastDayThisMonth));
+        if (targetDate < today) {
+          const lastDayNextMonth = new Date(y, m + 2, 0).getDate();
+          targetDate = new Date(y, m + 1, Math.min(Number(b.day) || 1, lastDayNextMonth));
+        }
+        const diff = Math.round((targetDate - today) / (1000 * 60 * 60 * 24));
+        items.push({
+          category: '결제', icon: '💳',
+          badgeCls: 'bg-amber-100 text-amber-800 border-amber-200',
+          title: b.title,
+          diff
+        });
+      });
+
+      return items.sort((a, b) => a.diff - b.diff);
+    }
+
+    function renderBillingDdays() {
+      const allItems = getAllDDayItems();
+
+      const boardList = document.getElementById('dday-board-list');
+      if (boardList) {
+        boardList.innerHTML = allItems.length === 0
+          ? `<div class="board-content-text text-slate-400 text-center py-3">등록된 D-Day가 없어.</div>`
+          : allItems.map(it => {
+            const urgent = it.diff <= 3;
+            const dLabel = it.diff < 0 ? `D+${Math.abs(it.diff)}` : it.diff === 0 ? '오늘!' : `D-${it.diff}`;
+            return `
+              <div class="flex items-center justify-between gap-1.5 px-2 py-1.5 rounded-lg border shrink-0 ${
+                urgent ? 'bg-rose-50/90 border-rose-300' : 'bg-stone-50/90 dark-sub-bg border-stone-200/80'
+              }">
+                <div class="flex items-center gap-1.5 min-w-0">
+                  <span class="px-1.5 py-0.2 rounded text-[10px] font-extrabold border shrink-0 ${it.badgeCls}">${it.icon} ${it.category}</span>
+                  <span class="board-content-text font-bold truncate">${escapeHtml(it.title)}</span>
+                </div>
+                <span class="px-1.5 py-0.5 rounded text-[10px] font-black tabular-nums shrink-0 ${
+                  urgent ? 'bg-rose-600 text-white' : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                }">${dLabel}</span>
+              </div>
+            `;
+          }).join('');
+      }
+
+      const mobBillList = document.getElementById('mob-billing-list');
+      if (mobBillList) {
+        mobBillList.innerHTML = allItems.map(it => {
+          const urgent = it.diff <= 3;
+          const dLabel = it.diff < 0 ? `D+${Math.abs(it.diff)}` : it.diff === 0 ? '오늘!' : `D-${it.diff}`;
+          return `
+            <div class="flex items-center justify-between px-3 py-2 rounded-xl border ${
+              urgent ? 'bg-rose-50 border-rose-300' : 'bg-stone-50 border-stone-200'
+            }">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="px-1.5 py-0.5 rounded text-[10px] font-extrabold border ${it.badgeCls}">${it.icon} ${it.category}</span>
+                <span class="text-xs font-bold truncate">${escapeHtml(it.title)}</span>
+              </div>
+              <span class="px-2 py-0.5 rounded text-xs font-black tabular-nums ${urgent ? 'bg-rose-600 text-white' : 'bg-indigo-100 text-indigo-800'}">${dLabel}</span>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+
+    /* 하교·하원 픽업 타임라인 */
+    function renderPickupTimeline() {
+      const pickups = [...(appState.settings.pickups || [])].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+      const whoBadge = (who) => {
+        if (who === '엄마') return 'bg-rose-100 text-rose-800 border-rose-200';
+        if (who === '아빠') return 'bg-blue-100 text-blue-800 border-blue-200';
+        if (who === '학원차') return 'bg-amber-100 text-amber-800 border-amber-200';
+        return 'bg-purple-100 text-purple-800 border-purple-200';
+      };
+
+      const html = pickups.length === 0
+        ? `<div class="board-content-text text-slate-400 text-center py-3">등록된 픽업 일정이 없어.</div>`
+        : pickups.map(p => `
+          <div class="flex items-center justify-between gap-1.5 px-2 py-1.5 rounded-lg bg-stone-50/90 dark-sub-bg border border-stone-200/80 shrink-0">
+            <div class="flex items-center gap-1.5 min-w-0">
+              <span class="text-[11px] font-black text-indigo-600 tabular-nums shrink-0">${escapeHtml(p.time)}</span>
+              <span class="board-content-text font-bold truncate">${escapeHtml(p.title)}</span>
+            </div>
+            <span class="px-1.5 py-0.2 rounded text-[10px] font-extrabold border shrink-0 ${whoBadge(p.who)}">${escapeHtml(p.who)}</span>
+          </div>
+        `).join('');
+
+      const deskBar = document.getElementById('pickup-timeline-bar');
+      const mobBar = document.getElementById('mob-pickup-list');
+      if (deskBar) deskBar.innerHTML = html;
+      if (mobBar) mobBar.innerHTML = html;
+    }
+
+    /* 주간 시간표 표 & 준비물 (세로형: 상단 초등+유치원 표 / 하단 좌우 준비물) */
+    function selectSchoolWeekday(day) {
+      selectedWeekday = day;
+      renderSchoolAndSupplies();
+    }
+
+    function toggleSupply(key) {
+      appState.checkedSupplies[key] = !appState.checkedSupplies[key];
+      saveState();
+      renderSchoolAndSupplies();
+    }
+
+    function renderSchoolAndSupplies() {
+      renderPickupTimeline();
+      document.getElementById('weekday-selector').innerHTML = DAY_TABS.map(tab => `
+        <button onclick="selectSchoolWeekday(${tab.day})" class="px-2 py-0.5 rounded-md transition cursor-pointer ${
+          selectedWeekday === tab.day ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-900'
+        }">${tab.label}</button>
+      `).join('');
+
+      const matrixBox = document.getElementById('weekly-timetable-matrix');
+      if (matrixBox) {
+        const days = [1, 2, 3, 4, 5];
+        const dayNames = ['월', '화', '수', '목', '금'];
+        const m = appState.timetableMatrix || DEFAULT_TIMETABLE_MATRIX;
+        let tbl = `<table class="w-full h-full border-collapse text-center board-content-text tabular-nums">
+          <thead>
+            <tr class="bg-stone-200/70 dark-sub-bg font-black">
+              <th class="border border-stone-200/90 py-0.5 w-9">구분</th>
+              ${days.map((d, i) => `<th class="border border-stone-200/90 py-0.5 ${selectedWeekday === d ? 'bg-indigo-600 text-white' : ''}">${dayNames[i]}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>`;
+        for (let p = 0; p < 6; p++) {
+          tbl += `<tr>
+            <td class="border border-stone-200/80 font-extrabold text-slate-400 text-[10px]">${p + 1}교시</td>
+            ${days.map(d => {
+              const subj = (m[d] && m[d][p]) ? m[d][p] : '-';
+              const activeCol = selectedWeekday === d ? 'bg-indigo-50/90 font-extrabold text-indigo-900' : 'font-semibold';
+              return `<td class="border border-stone-200/80 px-0.5 py-0.5 truncate max-w-[46px] ${activeCol}">${escapeHtml(subj)}</td>`;
+            }).join('')}
+          </tr>`;
+        }
+        tbl += `<tr class="bg-amber-50/90">
+          <td class="border border-stone-200/80 font-extrabold text-amber-800 text-[10px]">유치원</td>
+          ${days.map(d => {
+            const kAct = (appState.weeklyData[d] && appState.weeklyData[d].kinderActivity) ? appState.weeklyData[d].kinderActivity : '-';
+            const activeCol = selectedWeekday === d ? 'bg-amber-200/80 font-black text-amber-950' : 'font-bold text-amber-900';
+            return `<td class="border border-stone-200/80 px-0.5 py-0.5 truncate max-w-[46px] text-[10px] ${activeCol}" title="${escapeHtml(kAct)}">${escapeHtml(kAct)}</td>`;
+          }).join('')}
+        </tr>`;
+        tbl += `</tbody></table>`;
+        matrixBox.innerHTML = tbl;
+      }
+
+      const info = appState.weeklyData[selectedWeekday] || DEFAULT_WEEKLY_DATA[1];
+      const elemHtml = info.elemSupplies.map((item, idx) => {
+        const key = `elem-${selectedWeekday}-${idx}`;
+        const checked = !!appState.checkedSupplies[key];
+        return `
+          <button onclick="toggleSupply('${key}')" class="w-full flex items-center gap-1.5 text-left px-2 py-1 rounded board-content-text transition cursor-pointer ${
+            checked ? 'bg-emerald-600/15 line-through opacity-70' : 'bg-white/90 dark-sub-bg hover:bg-white'
+          }">
+            <span class="w-3.5 h-3.5 rounded flex items-center justify-center text-[10px] font-bold border shrink-0 ${
+              checked ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-emerald-400'
+            }">${checked ? '✓' : ''}</span>
+            <span class="truncate font-semibold">${escapeHtml(item)}</span>
+          </button>
+        `;
+      }).join('');
+      document.getElementById('elem-supplies').innerHTML = elemHtml;
+      const mobElem = document.getElementById('mob-elem-supplies');
+      if (mobElem) mobElem.innerHTML = elemHtml;
+
+      const kinderHtml = info.kinderSupplies.map((item, idx) => {
+        const key = `kinder-${selectedWeekday}-${idx}`;
+        const checked = !!appState.checkedSupplies[key];
+        return `
+          <button onclick="toggleSupply('${key}')" class="w-full flex items-center gap-1.5 text-left px-2 py-1 rounded board-content-text transition cursor-pointer ${
+            checked ? 'bg-amber-500/20 line-through opacity-70' : 'bg-white/90 dark-sub-bg hover:bg-white'
+          }">
+            <span class="w-3.5 h-3.5 rounded flex items-center justify-center text-[10px] font-bold border shrink-0 ${
+              checked ? 'bg-amber-500 border-amber-500 text-white' : 'border-amber-400'
+            }">${checked ? '✓' : ''}</span>
+            <span class="truncate font-semibold">${escapeHtml(item)}</span>
+          </button>
+        `;
+      }).join('');
+      document.getElementById('kinder-supplies').innerHTML = kinderHtml;
+      const mobKinder = document.getElementById('mob-kinder-supplies');
+      if (mobKinder) mobKinder.innerHTML = kinderHtml;
+    }
+
+    /* 통합 루틴 & 칭찬별 */
+    function changeStar(delta) {
+      appState.stars = Math.max(0, (appState.stars || 0) + delta);
+      saveState();
+      renderRoutines();
+    }
+
+    function toggleRoutine(id) {
+      const item = appState.routines.find(r => r.id === id);
+      if (!item) return;
+      item.done = !item.done;
+      if (item.done) appState.stars = (appState.stars || 0) + 1;
+      saveState();
+      renderRoutines();
+    }
+
+    function deleteRoutine(id) {
+      appState.routines = appState.routines.filter(r => r.id !== id);
+      saveState();
+      renderRoutines();
+    }
+
+    function addRoutineFromDesktop(e) {
+      e.preventDefault();
+      const member = document.getElementById('routine-member-select').value;
+      const time = document.getElementById('routine-time-input').value;
+      const inp = document.getElementById('routine-text-input');
+      const text = inp.value.trim();
+      if (!text) return;
+      appState.routines.push({ id: 'rt-' + Date.now(), member, time, text, done: false });
+      inp.value = '';
+      saveState();
+      renderRoutines();
+    }
+
+    function addRoutineMobile(e) {
+      e.preventDefault();
+      const member = document.getElementById('mob-rt-member').value;
+      const time = document.getElementById('mob-rt-time').value;
+      const inp = document.getElementById('mob-rt-text');
+      const text = inp.value.trim();
+      if (!text) return;
+      appState.routines.push({ id: 'rt-' + Date.now(), member, time, text, done: false });
+      inp.value = '';
+      saveState();
+      renderRoutines();
+      showToast('새 루틴 추가 완료!');
+    }
+
+    function renderRoutines() {
+      const sorted = [...appState.routines].sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99'));
+      const doneCnt = sorted.filter(r => r.done).length;
+      const pct = sorted.length === 0 ? 0 : Math.round((doneCnt / sorted.length) * 100);
+
+      document.getElementById('routine-progress-text').textContent = `${pct}%`;
+      document.getElementById('routine-progress-bar').style.width = `${pct}%`;
+      document.getElementById('star-count').textContent = appState.stars || 0;
+      const mobStar = document.getElementById('mob-star-count');
+      if (mobStar) mobStar.textContent = appState.stars || 0;
+
+      const html = sorted.map(r => `
+        <li class="flex items-center justify-between gap-1.5 px-2 py-1.5 rounded-lg border transition ${
+          r.done ? 'bg-indigo-50/50 border-indigo-200/60 opacity-65' : 'bg-stone-50/90 dark-sub-bg border-stone-200/80'
+        }">
+          <button onclick="toggleRoutine('${r.id}')" class="flex items-center gap-1.5 flex-1 min-w-0 text-left cursor-pointer">
+            <span class="w-4 h-4 rounded flex items-center justify-center text-[10px] font-black border shrink-0 ${
+              r.done ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 bg-white'
+            }">${r.done ? '✓' : ''}</span>
+            <span class="px-1.5 py-0.2 rounded text-[10px] font-extrabold border shrink-0 ${getMemberBadgeClass(r.member)}">${escapeHtml(r.member)}</span>
+            ${r.time ? `<span class="text-[10px] font-extrabold text-slate-400 tabular-nums shrink-0">${escapeHtml(r.time)}</span>` : ''}
+            <span class="board-content-text font-bold truncate ${r.done ? 'line-through' : ''}">${escapeHtml(r.text)}</span>
+          </button>
+          <button onclick="deleteRoutine('${r.id}')" class="text-[10px] text-rose-400 hover:text-rose-600 font-bold cursor-pointer shrink-0">✕</button>
+        </li>
+      `).join('');
+
+      document.getElementById('routine-list').innerHTML = html;
+      const mobList = document.getElementById('mob-routine-list');
+      if (mobList) mobList.innerHTML = html;
+    }
+
+    /* 가족 공유 메모 */
+    function toggleMemo(id) {
+      const item = appState.memos.find(m => m.id === id);
+      if (!item) return;
+      item.done = !item.done;
+      saveState();
+      renderMemos();
+    }
+
+    function deleteMemo(id) {
+      appState.memos = appState.memos.filter(m => m.id !== id);
+      saveState();
+      renderMemos();
+    }
+
+    function addMemoFromDesktop(e) {
+      e.preventDefault();
+      const inp = document.getElementById('memo-input');
+      const text = inp.value.trim();
+      if (!text) return;
+      appState.memos.unshift({ id: 'm-' + Date.now(), text, done: false });
+      inp.value = '';
+      saveState();
+      renderMemos();
+    }
+
+    function addMemoMobile(e) {
+      e.preventDefault();
+      const inp = document.getElementById('mob-memo-input');
+      const text = inp.value.trim();
+      if (!text) return;
+      appState.memos.unshift({ id: 'm-' + Date.now(), text, done: false });
+      inp.value = '';
+      saveState();
+      renderMemos();
+      showToast('가족 메모 등록 완료!');
+    }
+
+    function renderMemos() {
+      const left = appState.memos.filter(m => !m.done).length;
+      document.getElementById('memo-count-badge').textContent = `${left}개`;
+      const mobCnt = document.getElementById('mob-memo-count');
+      if (mobCnt) mobCnt.textContent = `${left}개 남음`;
+
+      const html = appState.memos.map(m => `
+        <li class="flex items-center justify-between gap-1.5 px-2 py-1.5 rounded-lg border transition ${
+          m.done ? 'bg-stone-100/70 border-stone-200/60 opacity-60' : 'bg-amber-50/75 dark-sub-bg border-amber-200/80'
+        }">
+          <button onclick="toggleMemo('${m.id}')" class="flex items-center gap-1.5 flex-1 min-w-0 text-left cursor-pointer">
+            <span class="w-3.5 h-3.5 rounded flex items-center justify-center text-[10px] font-black border shrink-0 ${
+              m.done ? 'bg-amber-500 border-amber-500 text-white' : 'border-amber-400 bg-white'
+            }">${m.done ? '✓' : ''}</span>
+            <span class="board-content-text font-bold truncate ${m.done ? 'line-through' : ''}">${escapeHtml(m.text)}</span>
+          </button>
+          <button onclick="deleteMemo('${m.id}')" class="text-[10px] text-rose-400 hover:text-rose-600 font-bold cursor-pointer shrink-0">✕</button>
+        </li>
+      `).join('');
+
+      document.getElementById('memo-list').innerHTML = html;
+      const mobList = document.getElementById('mob-memo-list');
+      if (mobList) mobList.innerHTML = html;
+    }
+
+    /* 오늘 식단 & 급식 사진 & 200선 (다중 선택 지원) */
+    function renderMeals() {
+      const dinnerText = (Array.isArray(appState.dinnerMenus) && appState.dinnerMenus.length > 0)
+        ? appState.dinnerMenus.join(' · ')
+        : (appState.dinnerMenu || '메뉴를 선택해 주세요');
+      appState.dinnerMenu = dinnerText;
+
+      document.getElementById('school-lunch-text').textContent = appState.lunchMenu;
+      document.getElementById('family-dinner-text').textContent = dinnerText;
+      const badge = document.getElementById('lunch-photo-badge');
+      if (badge) badge.textContent = appState.lunchPhotoDataUrl ? '🖼️ 급식사진 있음' : '📷 사진/수정';
+
+      const mobLunch = document.getElementById('mob-lunch-text');
+      const mobDinner = document.getElementById('mob-dinner-text');
+      const mobPhoto = document.getElementById('mob-lunch-photo-preview');
+      if (mobLunch) mobLunch.textContent = appState.lunchMenu;
+      if (mobDinner) mobDinner.textContent = dinnerText;
+      if (mobPhoto) {
+        if (appState.lunchPhotoDataUrl) {
+          mobPhoto.src = appState.lunchPhotoDataUrl;
+          mobPhoto.classList.remove('hidden');
+        } else {
+          mobPhoto.classList.add('hidden');
+        }
+      }
+    }
+
+    function recommendDinner() {
+      const pool = [...HOME_COOK_100, ...CHEF_COOK_100];
+      const candidates = pool.filter(m => !(appState.dinnerMenus || []).includes(m));
+      const picked = candidates[Math.floor(Math.random() * candidates.length)];
+      appState.dinnerMenus = [picked];
+      appState.dinnerMenu = picked;
+      saveState();
+      renderMeals();
+      showToast(`저녁 메뉴 추천: ${picked}`);
+    }
+
+    function switchMealCatalogTab(mode) {
+      mealCatalogMode = mode;
+      const hBtn = document.getElementById('mcat-home');
+      const cBtn = document.getElementById('mcat-chef');
+      if (mode === 'home') {
+        hBtn.className = 'px-3 py-1.5 rounded-lg bg-orange-500 text-white font-extrabold cursor-pointer';
+        cBtn.className = 'px-3 py-1.5 rounded-lg bg-stone-100 dark-btn text-slate-700 font-extrabold cursor-pointer';
+      } else {
+        cBtn.className = 'px-3 py-1.5 rounded-lg bg-indigo-600 text-white font-extrabold cursor-pointer';
+        hBtn.className = 'px-3 py-1.5 rounded-lg bg-stone-100 dark-btn text-slate-700 font-extrabold cursor-pointer';
+      }
+      renderMealCatalog();
+    }
+
+    function renderMealCatalog() {
+      const grid = document.getElementById('meal-catalog-grid');
+      if (!grid) return;
+      if (!Array.isArray(appState.dinnerMenus)) appState.dinnerMenus = [];
+
+      const chipsEl = document.getElementById('selected-dinner-chips');
+      if (chipsEl) {
+        chipsEl.innerHTML = appState.dinnerMenus.length === 0
+          ? `<span class="text-[11px] text-slate-400">아직 선택된 요리가 없습니다.</span>`
+          : appState.dinnerMenus.map(dish => `
+            <button onclick="toggleDinnerFromCatalog('${dish.replace(/'/g, "\\'")}')" class="px-2 py-0.5 rounded-full bg-orange-500 text-white text-[11px] font-extrabold flex items-center gap-1 cursor-pointer">
+              <span>${escapeHtml(dish)}</span><span>✕</span>
+            </button>
+          `).join('');
+      }
+
+      const keyword = (document.getElementById('meal-catalog-search')?.value || '').trim();
+      const source = mealCatalogMode === 'home' ? HOME_COOK_100 : CHEF_COOK_100;
+      const filtered = keyword ? source.filter(item => item.includes(keyword)) : source;
+
+      grid.innerHTML = filtered.map((dish, i) => {
+        const isSelected = appState.dinnerMenus.includes(dish);
+        return `
+          <button onclick="toggleDinnerFromCatalog('${dish.replace(/'/g, "\\'")}')" class="px-2.5 py-2 rounded-lg border text-left text-xs font-bold truncate transition cursor-pointer flex items-center justify-between gap-1 ${
+            isSelected
+              ? 'bg-orange-500 text-white border-orange-500'
+              : 'bg-stone-50 dark-sub-bg border-stone-200 hover:border-orange-400'
+          }">
+            <span class="truncate"><span class="opacity-50 text-[10px] mr-1">${i + 1}.</span>${escapeHtml(dish)}</span>
+            ${isSelected ? '<span class="text-[10px] font-black shrink-0">✓</span>' : ''}
+          </button>
+        `;
+      }).join('');
+    }
+
+    function toggleDinnerFromCatalog(dish) {
+      if (!Array.isArray(appState.dinnerMenus)) appState.dinnerMenus = [];
+      const idx = appState.dinnerMenus.indexOf(dish);
+      if (idx >= 0) {
+        appState.dinnerMenus.splice(idx, 1);
+      } else {
+        appState.dinnerMenus.push(dish);
+      }
+      appState.dinnerMenu = appState.dinnerMenus.join(' · ');
+      saveState();
+      renderMeals();
+      renderMealCatalog();
+    }
+
+    function clearSelectedDinners() {
+      appState.dinnerMenus = [];
+      appState.dinnerMenu = '';
+      saveState();
+      renderMeals();
+      renderMealCatalog();
+    }
+
+    function pickRandomFromCatalog() {
+      const source = mealCatalogMode === 'home' ? HOME_COOK_100 : CHEF_COOK_100;
+      const picked = source[Math.floor(Math.random() * source.length)];
+      if (!Array.isArray(appState.dinnerMenus)) appState.dinnerMenus = [];
+      if (!appState.dinnerMenus.includes(picked)) {
+        appState.dinnerMenus.push(picked);
+        appState.dinnerMenu = appState.dinnerMenus.join(' · ');
+        saveState();
+        renderMeals();
+        renderMealCatalog();
+      }
+      showToast(`[${picked}] 추가 완료!`);
+    }
+
+    function handleLunchPhotoUpload(e) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(ev) {
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          const maxW = 720;
+          const scale = Math.min(1, maxW / img.width);
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          appState.lunchPhotoDataUrl = canvas.toDataURL('image/jpeg', 0.68);
+          saveState();
+          renderMeals();
+          updateLunchPhotoInModal();
+          showToast('급식표 사진 저장 완료!');
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function clearLunchPhoto() {
+      appState.lunchPhotoDataUrl = '';
+      saveState();
+      renderMeals();
+      updateLunchPhotoInModal();
+      showToast('급식표 사진을 삭제했어.');
+    }
+
+    function updateLunchPhotoInModal() {
+      const wrap = document.getElementById('lunch-photo-modal-wrap');
+      const img = document.getElementById('lunch-photo-modal-img');
+      const delBtn = document.getElementById('clear-lunch-photo-btn');
+      if (appState.lunchPhotoDataUrl) {
+        img.src = appState.lunchPhotoDataUrl;
+        wrap.classList.remove('hidden');
+        delBtn.classList.remove('hidden');
+      } else {
+        wrap.classList.add('hidden');
+        delBtn.classList.add('hidden');
+      }
+    }
+
+    function openMealModal(type) {
+      currentMealEditType = type;
+      const inp = document.getElementById('meal-input');
+      document.getElementById('meal-modal-title').textContent = type === 'lunch' ? '오늘 점심 급식 수정 & 사진' : '오늘 저녁 메뉴 수정';
+      inp.value = type === 'lunch' ? appState.lunchMenu : appState.dinnerMenu;
+
+      const photoSec = document.getElementById('lunch-photo-section');
+      const btn200 = document.getElementById('open-200-from-meal-btn');
+      if (type === 'lunch') {
+        photoSec.classList.remove('hidden');
+        btn200.classList.add('hidden');
+        updateLunchPhotoInModal();
+      } else {
+        photoSec.classList.add('hidden');
+        btn200.classList.remove('hidden');
+      }
+
+      openModal('meal-modal');
+      setTimeout(() => inp.focus(), 40);
+    }
+
+    function saveMeal() {
+      const val = document.getElementById('meal-input').value.trim();
+      if (val) {
+        if (currentMealEditType === 'lunch') {
+          appState.lunchMenu = val;
+        } else {
+          appState.dinnerMenu = val;
+          appState.dinnerMenus = val.split('·').map(s => s.trim()).filter(Boolean);
+        }
+        saveState();
+        renderMeals();
+      }
+      closeModal('meal-modal');
+    }
+
+    /* 모달 열기/닫기 & 모바일 탭 */
+    function openModal(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.classList.remove('hidden');
+      el.classList.add('flex');
+    }
+
+    function closeModal(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.classList.add('hidden');
+      el.classList.remove('flex');
+    }
+
+    function switchMobileTab(tab) {
+      ['memo', 'sched', 'routine'].forEach(t => {
+        document.getElementById(`mob-panel-${t}`).classList.toggle('hidden', t !== tab);
+        document.getElementById(`mtab-${t}`).className = t === tab
+          ? 'flex flex-col items-center gap-0.5 text-indigo-600'
+          : 'flex flex-col items-center gap-0.5 text-slate-400';
+      });
+    }
+
+    /* 통합 설정 모달 제어 */
+    function openSettingsModal(defaultTab = 'layout') {
+      renderSettingsContent();
+      switchSettingsTab(defaultTab);
+      openModal('settings-modal');
+    }
+
+    function switchSettingsTab(tab) {
+      ['layout', 'sync', 'dday', 'meals200', 'school', 'pickup', 'members', 'general'].forEach(t => {
+        const panel = document.getElementById(`spanel-${t}`);
+        const btn = document.getElementById(`stab-${t}`);
+        if (!panel || !btn) return;
+        if (t === tab) {
+          panel.classList.remove('hidden');
+          btn.className = 'px-3 py-2 border-b-2 border-indigo-600 text-indigo-600 cursor-pointer shrink-0';
+        } else {
+          panel.classList.add('hidden');
+          btn.className = 'px-3 py-2 border-b-2 border-transparent text-slate-500 cursor-pointer shrink-0';
+        }
+      });
+    }
+
+    function renderSettingsContent() {
+      // 1. 화면배치·크기
+      document.getElementById('set-layout-list').innerHTML = appState.widgetLayout.map((w, idx) => {
+        w.size = normalizeWidgetSize(w.size);
+        return `
+        <div class="flex flex-wrap items-center justify-between gap-2 px-3 py-2 rounded-xl bg-stone-50 dark-sub-bg border border-stone-200">
+          <div class="flex items-center gap-2">
+            <span class="font-extrabold text-xs">${escapeHtml(w.title)}</span>
+          </div>
+          <div class="flex flex-wrap items-center gap-1">
+            <button onclick="moveWidgetOrder(${idx}, -1)" class="px-2 py-1 rounded bg-white dark-btn border border-stone-300 font-bold cursor-pointer">▲</button>
+            <button onclick="moveWidgetOrder(${idx}, 1)" class="px-2 py-1 rounded bg-white dark-btn border border-stone-300 font-bold cursor-pointer">▼</button>
+            ${WIDGET_SIZE_OPTIONS.map(opt => `
+              <button onclick="changeWidgetSize(${idx}, '${opt.value}')" title="${opt.title}" class="px-2 py-1 rounded leading-[1.05] font-extrabold inline-flex items-center justify-center text-center cursor-pointer ${
+                w.size === opt.value ? 'bg-indigo-600 text-white' : 'bg-white dark-btn border border-stone-300'
+              }">${opt.label}</button>
+            `).join('')}
+            <button onclick="toggleWidgetVisible(${idx})" class="px-2.5 py-1 rounded font-extrabold cursor-pointer ${
+              w.visible ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
+            }">${w.visible ? '표시중' : '숨김'}</button>
+          </div>
+        </div>
+      `;
+      }).join('');
+
+      // 2. 시트·캘린더·QR
+      document.getElementById('set-sheet-url').value = googleSheetUrl;
+      const autoUrl = buildAutoLoginUrl();
+      document.getElementById('qr-code-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(autoUrl)}`;
+
+      const gcals = appState.settings.googleCalendars || [];
+      document.getElementById('set-gcal-list').innerHTML = gcals.length === 0
+        ? `<div class="text-[11px] text-slate-400">등록된 구글 캘린더 ID가 없습니다.</div>`
+        : gcals.map((c, idx) => `
+          <div class="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-white dark-sub-bg border border-stone-200">
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="px-1.5 py-0.5 rounded text-[10px] font-extrabold border ${getMemberBadgeClass(c.member)}">${escapeHtml(c.member)}</span>
+              <span class="font-mono text-[11px] truncate">${escapeHtml(c.id)}</span>
+            </div>
+            <button onclick="removeGoogleCalendarConfig(${idx})" class="text-rose-500 font-bold text-xs cursor-pointer">삭제</button>
+          </div>
+        `).join('');
+
+      // 3. 학사일정 · 빌려온 물건 · 공과금
+      const acads = appState.settings.academics || [];
+      document.getElementById('set-academic-list').innerHTML = acads.map((a, idx) => `
+        <div class="flex items-center justify-between px-3 py-1.5 rounded-lg bg-white dark-sub-bg border border-stone-200">
+          <div class="flex items-center gap-2">
+            <span class="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-extrabold text-[10px]">${escapeHtml(a.who)}</span>
+            <span class="font-bold text-slate-500 tabular-nums">${escapeHtml(a.date)}</span>
+            <span class="font-extrabold">${escapeHtml(a.title)}</span>
+          </div>
+          <button onclick="removeAcademicItem(${idx})" class="text-rose-500 font-bold text-xs cursor-pointer">삭제</button>
+        </div>
+      `).join('');
+
+      const borrows = appState.settings.borroweds || [];
+      document.getElementById('set-borrowed-list').innerHTML = borrows.map((br, idx) => `
+        <div class="flex items-center justify-between px-3 py-1.5 rounded-lg bg-white dark-sub-bg border border-stone-200">
+          <div class="flex items-center gap-2">
+            <span class="font-extrabold">${escapeHtml(br.title)}</span>
+            <span class="text-slate-500">(${escapeHtml(br.from || '대여')})</span>
+            <span class="px-1.5 py-0.5 rounded bg-sky-100 text-sky-800 font-bold text-[10px] tabular-nums">반납: ${escapeHtml(br.due)}</span>
+          </div>
+          <button onclick="removeBorrowedItem(${idx})" class="text-rose-500 font-bold text-xs cursor-pointer">반납완료/삭제</button>
+        </div>
+      `).join('');
+
+      const bills = appState.settings.billings || [];
+      document.getElementById('set-billing-list').innerHTML = bills.map((b, idx) => `
+        <div class="flex items-center justify-between px-3 py-1.5 rounded-lg bg-white dark-sub-bg border border-stone-200">
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-extrabold text-[11px]">매월 ${b.day}일</span>
+            <span class="font-bold">${escapeHtml(b.title)}</span>
+          </div>
+          <button onclick="removeBillingItem(${idx})" class="text-rose-500 font-bold text-xs cursor-pointer">삭제</button>
+        </div>
+      `).join('');
+
+      // 4. 집밥·요리 200선
+      renderMealCatalog();
+
+      // 5. 표 형식 주간 시간표 & 준비물
+      const matrixEditor = document.getElementById('set-timetable-matrix-editor');
+      if (matrixEditor) {
+        const days = [1, 2, 3, 4, 5];
+        const dayNames = ['월요일', '화요일', '수요일', '목요일', '금요일'];
+        const m = appState.timetableMatrix || DEFAULT_TIMETABLE_MATRIX;
+        let html = `<table class="w-full border-collapse text-center text-xs">
+          <thead>
+            <tr class="bg-emerald-100/80 font-extrabold">
+              <th class="border border-stone-300 py-1 w-12">교시</th>
+              ${dayNames.map(dn => `<th class="border border-stone-300 py-1">${dn}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>`;
+        for (let p = 0; p < 6; p++) {
+          html += `<tr>
+            <td class="border border-stone-300 font-extrabold bg-stone-50">${p + 1}교시</td>
+            ${days.map(d => {
+              const val = (m[d] && m[d][p]) ? m[d][p] : '';
+              return `<td class="border border-stone-300 p-0.5">
+                <input id="tt-cell-${d}-${p}" type="text" value="${escapeHtml(val)}" class="w-full text-center py-1 px-1 rounded bg-white dark-sub-bg font-bold focus:outline-indigo-500" />
+              </td>`;
+            }).join('')}
+          </tr>`;
+        }
+        html += `</tbody></table>`;
+        matrixEditor.innerHTML = html;
+      }
+
+      document.getElementById('set-school-day-tabs').innerHTML = DAY_TABS.map(tab => `
+        <button onclick="selectSettingsSchoolDay(${tab.day})" class="px-2.5 py-1 rounded-lg font-bold cursor-pointer ${
+          settingsSchoolDay === tab.day ? 'bg-indigo-600 text-white' : 'bg-stone-100 dark-btn'
+        }">${tab.label}</button>
+      `).join('');
+      const sInfo = appState.weeklyData[settingsSchoolDay] || DEFAULT_WEEKLY_DATA[1];
+      document.getElementById('set-elem-supp').value = sInfo.elemSupplies.join(', ');
+      document.getElementById('set-kinder-subj').value = sInfo.kinderActivity;
+      document.getElementById('set-kinder-supp').value = sInfo.kinderSupplies.join(', ');
+
+      // 6. 픽업 타임라인
+      document.getElementById('set-pickup-list').innerHTML = (appState.settings.pickups || []).map((p, idx) => `
+        <div class="flex items-center justify-between px-3 py-1.5 rounded-lg bg-stone-50 dark-sub-bg border border-stone-200">
+          <div class="flex items-center gap-2">
+            <span class="font-black text-indigo-600 tabular-nums">${escapeHtml(p.time)}</span>
+            <span class="font-bold">${escapeHtml(p.title)}</span>
+            <span class="px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800 text-[10px] font-extrabold">${escapeHtml(p.who)}</span>
+          </div>
+          <button onclick="removePickupItem(${idx})" class="text-rose-500 font-bold text-xs cursor-pointer">삭제</button>
+        </div>
+      `).join('');
+
+      // 7. 구성원
+      document.getElementById('set-members-list').innerHTML = (appState.settings.members || []).map((m, idx) => `
+        <div class="flex items-center justify-between px-3 py-1.5 rounded-lg bg-stone-50 dark-sub-bg border border-stone-200">
+          <span class="px-2 py-0.5 rounded font-extrabold border ${getMemberBadgeClass(m.name)}">${escapeHtml(m.name)}</span>
+          ${idx === 0 ? '<span class="text-[11px] text-slate-400">기본</span>' : `<button onclick="removeMemberItem(${idx})" class="text-rose-500 font-bold text-xs cursor-pointer">삭제</button>`}
+        </div>
+      `).join('');
+
+      // 8. 일반 & 폰트 상세설정
+      const tSize = Number(appState.settings?.titleFontSize) || 14;
+      const cSize = Number(appState.settings?.contentFontSize) || 12;
+      document.getElementById('set-font-title').value = tSize;
+      document.getElementById('set-font-content').value = cSize;
+      document.getElementById('font-title-val').textContent = `${tSize}px`;
+      document.getElementById('font-content-val').textContent = `${cSize}px`;
+
+      document.getElementById('set-city-name').value = appState.city || '인천 논현동';
+      document.getElementById('set-night-enabled').checked = !!appState.settings.nightModeEnabled;
+      document.getElementById('set-night-start').value = appState.settings.nightStart || '22:00';
+      document.getElementById('set-night-end').value = appState.settings.nightEnd || '06:30';
+      document.getElementById('set-midnight-reset').checked = !!appState.settings.midnightAutoReset;
+    }
+
+    function addAcademicItem() {
+      const who = document.getElementById('new-acad-who').value;
+      const date = document.getElementById('new-acad-date').value;
+      const title = document.getElementById('new-acad-title').value.trim();
+      if (!date || !title) return;
+      appState.settings.academics.push({ id: 'a-' + Date.now(), who, date, title });
+      document.getElementById('new-acad-title').value = '';
+      saveState();
+      renderSettingsContent();
+      renderBillingDdays();
+    }
+
+    function removeAcademicItem(idx) {
+      appState.settings.academics.splice(idx, 1);
+      saveState();
+      renderSettingsContent();
+      renderBillingDdays();
+    }
+
+    function addBorrowedItem() {
+      const title = document.getElementById('new-borrow-title').value.trim();
+      const from = document.getElementById('new-borrow-from').value.trim();
+      const due = document.getElementById('new-borrow-due').value;
+      if (!title || !due) return;
+      appState.settings.borroweds.push({ id: 'br-' + Date.now(), title, from, due });
+      document.getElementById('new-borrow-title').value = '';
+      saveState();
+      renderSettingsContent();
+      renderBillingDdays();
+    }
+
+    function removeBorrowedItem(idx) {
+      appState.settings.borroweds.splice(idx, 1);
+      saveState();
+      renderSettingsContent();
+      renderBillingDdays();
+    }
+
+    function addBillingItem() {
+      const day = Number(document.getElementById('new-bill-day').value) || 25;
+      const title = document.getElementById('new-bill-title').value.trim();
+      if (!title) return;
+      appState.settings.billings.push({ id: 'b-' + Date.now(), day, title });
+      document.getElementById('new-bill-title').value = '';
+      saveState();
+      renderSettingsContent();
+      renderBillingDdays();
+    }
+
+    function removeBillingItem(idx) {
+      appState.settings.billings.splice(idx, 1);
+      saveState();
+      renderSettingsContent();
+      renderBillingDdays();
+    }
+
+    function saveTimetableMatrixFromSettings() {
+      const days = [1, 2, 3, 4, 5];
+      const nextMatrix = {};
+      days.forEach(d => {
+        nextMatrix[d] = [];
+        for (let p = 0; p < 6; p++) {
+          const el = document.getElementById(`tt-cell-${d}-${p}`);
+          nextMatrix[d].push(el ? el.value.trim() : '');
+        }
+      });
+      appState.timetableMatrix = nextMatrix;
+      saveState();
+      renderSchoolAndSupplies();
+      showToast('주간 시간표 표가 저장됐어!');
+    }
+
+    function selectSettingsSchoolDay(day) {
+      settingsSchoolDay = day;
+      renderSettingsContent();
+    }
+
+    function saveSchoolFromSettings() {
+      const parseList = (str) => str.split(',').map(s => s.trim()).filter(Boolean);
+      const prev = appState.weeklyData[settingsSchoolDay] || DEFAULT_WEEKLY_DATA[1];
+      appState.weeklyData[settingsSchoolDay] = {
+        elemSubjects: prev.elemSubjects,
+        elemSupplies: parseList(document.getElementById('set-elem-supp').value),
+        kinderActivity: document.getElementById('set-kinder-subj').value.trim() || '자유 놀이',
+        kinderSupplies: parseList(document.getElementById('set-kinder-supp').value)
+      };
+      selectedWeekday = settingsSchoolDay;
+      saveState();
+      renderSchoolAndSupplies();
+      showToast('준비물과 유치원 활동이 저장됐어!');
+    }
+
+    function addPickupItem() {
+      const time = document.getElementById('new-pickup-time').value;
+      const title = document.getElementById('new-pickup-title').value.trim();
+      const who = document.getElementById('new-pickup-who').value;
+      if (!title) return;
+      appState.settings.pickups.push({ id: 'p-' + Date.now(), time, title, who });
+      document.getElementById('new-pickup-title').value = '';
+      saveState();
+      renderSettingsContent();
+      renderPickupTimeline();
+    }
+
+    function removePickupItem(idx) {
+      appState.settings.pickups.splice(idx, 1);
+      saveState();
+      renderSettingsContent();
+      renderPickupTimeline();
+    }
+
+    function addMemberItem() {
+      const name = document.getElementById('new-member-name').value.trim();
+      const color = document.getElementById('new-member-color').value;
+      if (!name) return;
+      appState.settings.members.push({ name, color });
+      document.getElementById('new-member-name').value = '';
+      saveState();
+      populateMemberSelects();
+      renderSettingsContent();
+    }
+
+    function removeMemberItem(idx) {
+      appState.settings.members.splice(idx, 1);
+      saveState();
+      populateMemberSelects();
+      renderSettingsContent();
+    }
+
+    function addGoogleCalendarConfig() {
+      const member = document.getElementById('new-gcal-member').value;
+      const id = document.getElementById('new-gcal-id').value.trim();
+      if (!id) return;
+      appState.settings.googleCalendars.push({ member, id });
+      document.getElementById('new-gcal-id').value = '';
+      saveState();
+      renderSettingsContent();
+      if (googleSheetUrl) pullFromGoogleSheet(true);
+    }
+
+    function removeGoogleCalendarConfig(idx) {
+      appState.settings.googleCalendars.splice(idx, 1);
+      saveState();
+      renderSettingsContent();
+      if (googleSheetUrl) pullFromGoogleSheet(true);
+    }
+
+    function saveCityName() {
+      const val = document.getElementById('set-city-name').value.trim();
+      if (!val) return;
+      appState.city = val;
+      saveState();
+      renderWeather();
+      showToast(`동네 이름을 [${val}]로 바꿨어!`);
+    }
+
+    function saveGeneralToggles() {
+      appState.settings.nightModeEnabled = document.getElementById('set-night-enabled').checked;
+      appState.settings.nightStart = document.getElementById('set-night-start').value;
+      appState.settings.nightEnd = document.getElementById('set-night-end').value;
+      appState.settings.midnightAutoReset = document.getElementById('set-midnight-reset').checked;
+      saveState();
+      applyNightSchedule();
+    }
+
+    /* 구글 시트 동기화 & URL 자동로그인 북마크 */
+    function buildAutoLoginUrl() {
+      const base = window.location.origin + window.location.pathname;
+      return googleSheetUrl ? `${base}?sheet=${encodeURIComponent(googleSheetUrl)}` : base;
+    }
+
+    function copyAutoLoginUrl() {
+      const url = buildAutoLoginUrl();
+      const ta = document.createElement('textarea');
+      ta.value = url;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      showToast('북마크용 자동로그인 URL을 복사했어!');
+    }
+
+    function updateSyncBadge(status, label) {
+      const dot = document.getElementById('sync-dot');
+      const txt = document.getElementById('sync-label');
+      const mDot = document.getElementById('mob-sync-dot');
+      const mTxt = document.getElementById('mob-sync-label');
+      const color = status === 'ok' ? 'bg-emerald-500' : status === 'syncing' ? 'bg-sky-500 animate-pulse' : 'bg-amber-500';
+      if (dot) dot.className = `w-2 h-2 rounded-full ${color}`;
+      if (txt) txt.textContent = label;
+      if (mDot) mDot.className = `w-2 h-2 rounded-full ${color}`;
+      if (mTxt) mTxt.textContent = label;
+    }
+
+    function handleSyncButtonClick() {
+      if (!googleSheetUrl) {
+        openSettingsModal('sync');
+        return;
+      }
+      pullFromGoogleSheet(true);
+    }
+
+    function saveSheetUrlFromSettings() {
+      const val = document.getElementById('set-sheet-url').value.trim();
+      googleSheetUrl = val;
+      if (val) localStorage.setItem(SHEET_URL_KEY, val);
+      else localStorage.removeItem(SHEET_URL_KEY);
+      renderSettingsContent();
+      if (val) {
+        pushToGoogleSheet().then(() => pullFromGoogleSheet(true));
+        showToast('구글 시트 URL 저장 & 동기화 시작!');
+      } else {
+        updateSyncBadge('local', '로컬');
+      }
+    }
+
+    async function pushToGoogleSheet() {
+      if (!googleSheetUrl) return;
+      try {
+        updateSyncBadge('syncing', '저장중...');
+        await fetch(googleSheetUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ data: appState })
+        });
+        updateSyncBadge('ok', '시트연동됨');
+      } catch (e) {
+        updateSyncBadge('local', '연결오류');
+      }
+    }
+
+    async function pullFromGoogleSheet(manual = false) {
+      if (!googleSheetUrl) return;
+      try {
+        if (manual) updateSyncBadge('syncing', '동기화중...');
+        const res = await fetch(`${googleSheetUrl}?t=${Date.now()}`);
+        const json = await res.json();
+        if (json && json.status === 'ok') {
+          if (Array.isArray(json.gcalEvents)) {
+            gcalEvents = json.gcalEvents;
+            localStorage.setItem(GCAL_CACHE_KEY, JSON.stringify(gcalEvents));
+          }
+          if (json.data && (json.data.lastModified || 0) > (appState.lastModified || 0)) {
+            appState = Object.assign(createInitialState(), json.data);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+          }
+          renderAll();
+          updateSyncBadge('ok', '시트연동됨');
+          if (manual) showToast(`동기화 완료! (구글캘린더 ${gcalEvents.length}건 불러옴)`);
+        }
+      } catch (e) {
+        updateSyncBadge('local', '연결오류');
+        if (manual) showToast('시트 연결 실패! URL과 배포 권한을 확인해 줘.');
+      }
+    }
+
+    function renderAll() {
+      document.body.className = `theme-${appState.theme || 'paper'} transition-colors duration-300 select-none`;
+      applyFontSettings();
+      populateMemberSelects();
+      applyWidgetLayout();
+      renderWeather();
+      renderCalendar();
+      renderBillingDdays();
+      renderSchoolAndSupplies();
+      renderRoutines();
+      renderMemos();
+      renderMeals();
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      checkMidnightAutoReset();
+      applyNightSchedule();
+      updateClock();
+      renderAll();
+      if (getBackupList().length === 0) {
+        createBackupSnapshot('초기 자동백업', true);
+      }
+
+      setInterval(() => {
+        updateClock();
+        checkMidnightAutoReset();
+        applyNightSchedule();
+      }, 1000);
+
+      // 15분마다 자동 백업 스냅샷 저장
+      setInterval(() => {
+        createBackupSnapshot('15분 자동백업', true);
+      }, 15 * 60 * 1000);
+
+      if (googleSheetUrl) {
+        pullFromGoogleSheet(false);
+        setInterval(() => pullFromGoogleSheet(false), 15000);
+      } else {
+        updateSyncBadge('local', '로컬');
+      }
+    });
+  </script>
+</body>
+</html>
